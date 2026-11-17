@@ -4,6 +4,12 @@ venv/
 ENV/
 env/
 
+# Environment & Secrets (Zero-Secrets Rule)
+.env
+.env.*
+!.env.example
+*.env
+
 # Python cache
 __pycache__/
 *.py[cod]
