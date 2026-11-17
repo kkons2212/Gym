@@ -317,7 +317,7 @@ flowchart LR
 
 ### GIAI ĐOẠN 4: TẦNG NGHIỆP VỤ (SERVICE LAYER & EXTERNAL APIS)
 
-#### - [ ] Task 4.1 (TSK-15): Tích hợp Dịch vụ VietQR Sandbox API
+#### - [x] Task 4.1 (TSK-15): Tích hợp Dịch vụ VietQR Sandbox API
 * **Tệp tin:** `UI/services/vietqr_service.py`
 * **Mục tiêu:** Gọi API Sandbox của VietQR (`https://api.vietqr.io/v2/generate`) bằng thư viện `requests` để sinh mã QR động chứa số tiền và nội dung chuyển khoản, kèm cơ chế fallback tạo mã offline bằng `qrcode`.
 * **Chi tiết thực thi:**
@@ -329,7 +329,7 @@ flowchart LR
 * **Tiêu chí nghiệm thu (DoD):**
   * Trả về ảnh mã QR hợp lệ cả khi có mạng lẫn khi ngắt kết nối mạng.
 
-#### - [ ] Task 4.2 (TSK-16): Xây dựng MemberService (Nghiệp vụ UC02.1 & UC05.1)
+#### - [x] Task 4.2 (TSK-16): Xây dựng MemberService (Nghiệp vụ UC02.1 & UC05.1)
 * **Tệp tin:** `UI/services/member_service.py`
 * **Mục tiêu:** Thực thi nghiệp vụ Đăng ký hội viên mới, kích hoạt gói tập và lập hóa đơn thu tiền trong một Transaction an toàn (All-or-Nothing).
 * **Quy trình chi tiết:**
@@ -353,7 +353,7 @@ flowchart LR
 * **Tiêu chí nghiệm thu (DoD):**
   * Dữ liệu được ghi đồng thời vào 4 bảng. Nếu 1 bảng lỗi, toàn bộ dữ liệu bị rollback sạch sẽ.
 
-#### - [ ] Task 4.3 (TSK-17): Xây dựng CheckInService (Nghiệp vụ UC03.1 & UC03.2)
+#### - [x] Task 4.3 (TSK-17): Xây dựng CheckInService (Nghiệp vụ UC03.1 & UC03.2)
 * **Tệp tin:** `UI/services/checkin_service.py`
 * **Mục tiêu:** Thực thi nghiệp vụ Điểm danh kiểm soát vào phòng tập, kiểm tra điều kiện thẻ và tự động trừ buổi.
 * **Quy trình chi tiết:**
