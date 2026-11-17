@@ -1,7 +1,7 @@
-"""Member Registration and Subscription Service (UC02.1 & UC05.1).
+"""Member registration and subscription service (UC02.1 & UC05.1).
 
-Coordinates atomic multi-table business transactions across User, MemberSubscription,
-Invoice, and Notification entities under strict ACID compliance.
+Coordinates ACID transactions across User, MemberSubscription, Invoice, and
+Notification entities.
 """
 
 from __future__ import annotations
@@ -9,10 +9,17 @@ from __future__ import annotations
 import logging
 import re
 from datetime import date, datetime, timedelta
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Tuple
 from uuid import uuid4
 
-from constants import InvoiceStatus, PaymentMethod, RoleID, SubscriptionStatus, TransactionType, UserStatus
+from constants import (
+    InvoiceStatus,
+    PaymentMethod,
+    RoleID,
+    SubscriptionStatus,
+    TransactionType,
+    UserStatus,
+)
 from database.db_connection import db
 from exceptions import (
     DuplicateUserException,
@@ -22,6 +29,7 @@ from exceptions import (
 from models.invoice import Invoice
 from models.member_subscription import MemberSubscription
 from models.notification import Notification
+from models.package_plan import PackagePlan
 from models.user import User
 from repositories.invoice_repository import InvoiceRepository
 from repositories.notification_repository import NotificationRepository
@@ -50,6 +58,77 @@ class MemberService:
         self.noti_repo = noti_repo or NotificationRepository()
         self.db = db
 
+    def validate_registration(
+        self,
+        full_name: str,
+        phone: str,
+        plan_id: str,
+        payment_method: str = PaymentMethod.VIETQR.value,
+        email: Optional[str] = None,
+    ) -> PackagePlan:
+        """Validate a registration before a payment request is presented."""
+        return self._validate_registration_inputs(
+            full_name, phone, plan_id, payment_method, email
+        )[4]
+
+    def _validate_registration_inputs(
+        self,
+        full_name: str,
+        phone: str,
+        plan_id: str,
+        payment_method: str,
+        email: Optional[str],
+    ) -> Tuple[str, str, Optional[str], str, PackagePlan]:
+        full_name = full_name.strip() if full_name else ""
+        if not full_name:
+            raise ValidationException(
+                "Họ và tên hội viên không được để trống.", "full_name"
+            )
+
+        phone = phone.strip() if phone else ""
+        if not phone:
+            raise ValidationException(
+                "Số điện thoại không được để trống.", "phone"
+            )
+
+        clean_phone = re.sub(r"[\s\-\.]", "", phone)
+        if clean_phone.startswith("+84"):
+            clean_phone = "0" + clean_phone[3:]
+        if not re.match(r"^0\d{9}$", clean_phone):
+            raise ValidationException(
+                f"Số điện thoại '{phone}' không hợp lệ. "
+                "Bắt buộc phải là 10 chữ số tại Việt Nam.",
+                "phone",
+            )
+
+        if email:
+            email = email.strip()
+            if not re.match(r"^[\w\.-]+@[\w\.-]+\.\w+$", email):
+                raise ValidationException(
+                    f"Địa chỉ email '{email}' không đúng định dạng.",
+                    "email",
+                )
+
+        payment_method = payment_method.upper().strip()
+        if payment_method not in {
+            PaymentMethod.CASH.value,
+            PaymentMethod.VIETQR.value,
+        }:
+            raise ValidationException(
+                "Chỉ chấp nhận phương thức CASH hoặc VIETQR.",
+                "payment_method",
+            )
+
+        existing_phone = self.user_repo.find_by_phone(clean_phone)
+        if existing_phone:
+            raise DuplicateUserException("Số điện thoại", clean_phone)
+
+        plan = self.plan_repo.get_by_id(plan_id)
+        if not plan or not plan.is_available():
+            raise PackageNotFoundException(plan_id)
+
+        return full_name, clean_phone, email, payment_method, plan
+
     def register_member_with_package(
         self,
         full_name: str,
@@ -60,10 +139,11 @@ class MemberService:
         admin_id: Optional[str] = "ADMIN",
         assigned_pt_id: Optional[str] = None,
         gender: Optional[int] = 1,
+        invoice_code: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Thực hiện quy trình đăng ký hội viên mới kèm gói tập và hóa đơn.
 
-        Quy trình được thực thi nguyên tử trong một Transaction (All-or-Nothing).
+        Quy trình được thực thi nguyên tử trong một transaction.
         Nếu phát sinh bất kỳ lỗi nào, toàn bộ dữ liệu 4 bảng sẽ được rollback.
 
         Args:
@@ -75,54 +155,33 @@ class MemberService:
             admin_id: Mã nhân viên lễ tân trực quầy thực hiện giao dịch.
             assigned_pt_id: Mã HLV phụ trách nếu gói có PT.
             gender: Giới tính (1: Nam, 0: Nữ).
+            invoice_code: Mã đơn dùng chung với nội dung chuyển khoản VietQR.
 
         Returns:
-            Dict[str, Any]: Kết quả chi tiết gồm thông tin User, Subscription, Invoice, Notification.
+            Dict[str, Any]: Kết quả chi tiết của đăng ký.
 
         Raises:
             ValidationException: Khi thông tin nhập liệu không hợp lệ.
-            DuplicateUserException: Khi số điện thoại đã tồn tại trong hệ thống.
-            PackageNotFoundException: Khi mã gói tập không tồn tại hoặc đã ngừng bán.
+            DuplicateUserException: Số điện thoại đã tồn tại.
+            PackageNotFoundException: Gói không tồn tại hoặc đã ngừng bán.
         """
         # 1. Fail-Fast Validation
-        full_name = full_name.strip() if full_name else ""
-        if not full_name:
-            raise ValidationException("Họ và tên hội viên không được để trống.", "full_name")
+        (
+            full_name,
+            clean_phone,
+            email,
+            payment_method,
+            plan,
+        ) = self._validate_registration_inputs(
+            full_name, phone, plan_id, payment_method, email
+        )
 
-        phone = phone.strip() if phone else ""
-        if not phone:
-            raise ValidationException("Số điện thoại không được để trống.", "phone")
-
-        clean_phone = re.sub(r"[\s\-\.]", "", phone)
-        if clean_phone.startswith("+84"):
-            clean_phone = "0" + clean_phone[3:]
-        if not re.match(r"^0\d{9}$", clean_phone):
-            raise ValidationException(
-                f"Số điện thoại '{phone}' không hợp lệ. Bắt buộc phải là 10 chữ số tại Việt Nam.",
-                "phone",
-            )
-
-        if email:
-            email = email.strip()
-            if not re.match(r"^[\w\.-]+@[\w\.-]+\.\w+$", email):
-                raise ValidationException(f"Địa chỉ email '{email}' không đúng định dạng.", "email")
-
-        payment_method = payment_method.upper().strip()
-        if payment_method not in {PaymentMethod.CASH.value, PaymentMethod.VIETQR.value}:
-            raise ValidationException(
-                f"Phương thức thanh toán '{payment_method}' không hợp lệ. Chỉ chấp nhận CASH hoặc VIETQR.",
-                "payment_method",
-            )
-
-        # 2. Kiểm tra trùng lặp số điện thoại
-        existing_phone = self.user_repo.find_by_phone(clean_phone)
-        if existing_phone:
-            raise DuplicateUserException("Số điện thoại", clean_phone)
-
-        # 3. Tra cứu gói tập niêm yết
-        plan = self.plan_repo.get_by_id(plan_id)
-        if not plan or not plan.is_available():
-            raise PackageNotFoundException(plan_id)
+        if invoice_code is not None:
+            invoice_code = invoice_code.strip()
+            if not invoice_code or len(invoice_code) > 255:
+                raise ValidationException(
+                    "Mã hóa đơn không hợp lệ.", "invoice_code"
+                )
 
         # 4. Tính toán thời hạn và số buổi
         today = date.today()
@@ -136,7 +195,7 @@ class MemberService:
         inv_id = f"INV{uuid4().hex[:6].upper()}"
         noti_id = f"NOT{uuid4().hex[:6].upper()}"
         qr_token = f"GYM-QR-{username}-{uuid4().hex[:8].upper()}"
-        inv_code = f"HD-{datetime.now().strftime('%Y%m%d%H%M%S')}-{uuid4().hex[:4].upper()}"
+        inv_code = invoice_code or self.generate_invoice_code()
 
         # 6. Tạo các thực thể Entity
         new_user = User(
@@ -183,7 +242,11 @@ class MemberService:
             notification_id=noti_id,
             username=username,
             title="Chào mừng hội viên mới!",
-            message=f"Chúc mừng bạn đã kích hoạt thành công gói tập '{plan.name}'. Mã QR thẻ tập của bạn: {qr_token}",
+            message=(
+                "Chúc mừng bạn đã kích hoạt thành công "
+                f"gói tập '{plan.name}'. "
+                f"Mã QR thẻ tập của bạn: {qr_token}"
+            ),
             created_at=datetime.now(),
         )
 
@@ -195,7 +258,8 @@ class MemberService:
             self.noti_repo.create_with_cursor(cursor, new_noti)
 
         logger.info(
-            "Đăng ký hội viên thành công: username=%s, phone=%s, plan=%s, invoice=%s",
+            "Đăng ký hội viên thành công: "
+            "username=%s, phone=%s, plan=%s, invoice=%s",
             username,
             clean_phone,
             plan.name,
@@ -210,3 +274,11 @@ class MemberService:
             "notification": new_noti,
             "qr_code": qr_token,
         }
+
+    @staticmethod
+    def generate_invoice_code() -> str:
+        """Create a unique invoice code for payment transfer details."""
+        return (
+            f"HD-{datetime.now().strftime('%Y%m%d%H%M%S')}-"
+            f"{uuid4().hex[:8].upper()}"
+        )

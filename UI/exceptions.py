@@ -56,13 +56,19 @@ class SubscriptionExpiredException(GymBaseException):
 class CheckInDeniedException(GymBaseException):
     """Raised when a check-in attempt fails validation guardrails."""
 
-    def __init__(self, reason: str, username: Optional[str] = None) -> None:
+    def __init__(
+        self,
+        reason: str,
+        username: Optional[str] = None,
+        check_in_id: Optional[str] = None,
+    ) -> None:
         super().__init__(
             message=f"Từ chối điểm danh hội viên {username or ''}: {reason}".strip(),
             error_code="CHECKIN_DENIED",
         )
         self.reason = reason
         self.username = username
+        self.check_in_id = check_in_id
 
 
 class DatabaseTransactionException(GymBaseException):

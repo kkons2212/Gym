@@ -380,7 +380,7 @@ flowchart LR
 
 ### GIAI ĐOẠN 5: TÍCH HỢP GIAO DIỆN PYQT6 (PRESENTATION INTEGRATION)
 
-#### - [ ] Task 5.1 (TSK-18): Cải tạo Hộp thoại Đăng Ký Hội Viên Mới
+#### - [x] Task 5.1 (TSK-18): Cải tạo Hộp thoại Đăng Ký Hội Viên Mới
 * **Tệp tin:** `UI/desktop_portal/dialogs/register_member_dialog.py`
 * **Mục tiêu:** Kết nối giao diện đăng ký với `MemberService` thật, loại bỏ hoàn toàn `mock_data.py`.
 * **Quy chuẩn UI/UX bắt buộc (Tuân thủ `python_ui_rules.md` & `python_ux_rules.md`):**
@@ -388,14 +388,16 @@ flowchart LR
   * **Phương thức thanh toán:** Chỉ gồm 2 RadioButton: `Tiền mặt` và `Chuyển khoản VietQR`. **Tuyệt đối không có lựa chọn quẹt thẻ POS**.
   * **Nếu chọn VietQR:** Mở hộp thoại `VietQrPaymentDialog` hiển thị mã QR động lấy từ `VietQrService`.
   * **Idempotency Guardrail:** Khi nhấn `"✓ Hoàn Tất Đăng Ký"`, nút lập tức chuyển sang `setEnabled(False)` và đổi nhãn `"Đang lưu dữ liệu…"`.
-  * **Never Block Paste:** Cho phép dán (Ctrl+V) vào ô SĐT, CCCD, Email.
+  * **Never Block Paste:** Cho phép dán (Ctrl+V) vào ô SĐT và Email.
   * **Inline Error & Focus Anchoring:** Nếu vi phạm (ví dụ trùng SĐT), viền ô đỏ lên, hiển thị lỗi màu đỏ phía dưới và gọi `setFocus()` tới ô lỗi đầu tiên.
   * **Mã QR thành công:** Sau khi lưu thành công, hiển thị modal thông báo kèm widget mã QR của hội viên vừa tạo.
+  * CCCD được bỏ khỏi form theo quyết định của người dùng; mã hội viên được hệ thống sinh.
+  * VietQR chỉ lưu đăng ký sau khi nhân viên xác nhận đã nhận tiền; mã hóa đơn cũng là nội dung chuyển khoản.
 * **Tiêu chí nghiệm thu (DoD):**
   * Đăng ký hội viên mới thành công và xuất hiện trong MySQL.
   * Không thể click đúp nút submit.
 
-#### - [ ] Task 5.2 (TSK-19): Cải tạo Màn hình Quầy Điểm Danh Check-in
+#### - [x] Task 5.2 (TSK-19): Cải tạo Màn hình Quầy Điểm Danh Check-in
 * **Tệp tin:** `UI/desktop_portal/views/checkin_counter_page.py`
 * **Mục tiêu:** Kết nối quầy điểm danh với `CheckInService` thật, hỗ trợ camera quét QR và nhập tay SĐT.
 * **Quy chuẩn UI/UX bắt buộc:**
@@ -407,16 +409,20 @@ flowchart LR
     * Nếu TỪ CHỐI: Khung thẻ viền đỏ `#DC2626`, chip `TỪ CHỐI` (`#F87171` trên nền `#7F1D1D`), hiển thị dòng lý do từ chối to rõ bằng chữ đỏ.
   * **Zero Sound Rule:** Tuyệt đối không phát tiếng bíp còi gây ồn ào.
   * **Real-time Log Prepend:** Chèn ngay kết quả vừa điểm danh vào dòng đầu tiên (dòng 0) của bảng nhật ký hôm nay mà không bắt tải lại trang.
+  * Phương thức điểm danh không được lưu trong schema `CheckInLog`; lịch sử cũ hiển thị phương thức chưa xác định.
 * **Tiêu chí nghiệm thu (DoD):**
   * Quét QR hoặc nhập SĐT điểm danh thành công trong $< 1$ giây.
   * Số buổi còn lại trên CSDL giảm đi 1 ngay lập tức.
 
-#### - [ ] Task 5.3 (TSK-20): Đồng bộ dữ liệu thật trên MembersPage và PosBillingPage
+#### - [x] Task 5.3 (TSK-20): Đồng bộ dữ liệu thật trên MembersPage và PosBillingPage
 * **Tệp tin:** `UI/desktop_portal/views/members_page.py`, `UI/desktop_portal/views/pos_billing_page.py`
-* **Mục tiêu:** Thay thế dữ liệu giả lập `mock_data.py` bằng dữ liệu sống từ `UserRepository` và `PackagePlanRepository`.
+* **Mục tiêu:** Thay thế dữ liệu giả lập `mock_data.py` bằng dữ liệu sống từ các repository.
 * **Tiêu chí nghiệm thu (DoD):**
-  * `MembersPage` tải danh sách hội viên thật từ bảng `User` và `MemberSubscription`.
+  * `MembersPage` tải danh sách hội viên thật từ truy vấn kết hợp `User`, `MemberSubscription` và `PackagePlan`.
   * `PosBillingPage` nạp danh mục gói tập thật từ bảng `PackagePlan`.
+  * POS và hóa đơn giả lập đã được loại bỏ khỏi trang này; CTA chuyển sang luồng đăng ký hội viên.
+
+> **Giới hạn theo schema/ quyết định nghiệp vụ:** Không có `SubscriptionId` để ghi vào `CheckInLog` khi không tìm thấy thẻ, nên trường hợp này chỉ hiện kết quả từ chối trên UI và không ghi DB. Bảng cũng không lưu phương thức quét/nhập tay.
 
 ---
 
@@ -484,9 +490,9 @@ flowchart LR
 | - [ ] | **TSK-15** | Tích hợp Dịch vụ VietQR Sandbox API bằng requests | Service / API | `UI/services/vietqr_service.py` | `P1` |
 | - [ ] | **TSK-16** | Xây dựng MemberService (Giao dịch tạo hội viên mới) | Service / Domain | `UI/services/member_service.py` | `P0` |
 | - [ ] | **TSK-17** | Xây dựng CheckInService (Kiểm tra thẻ & trừ lượt) | Service / Domain | `UI/services/checkin_service.py` | `P0` |
-| - [ ] | **TSK-18** | Tích hợp RegisterMemberDialog (Form đăng ký & VietQR)| Presentation | `UI/desktop_portal/dialogs/register_member_dialog.py` | `P0` |
-| - [ ] | **TSK-19** | Tích hợp CheckInCounterPage (Camera QR & Nhập tay) | Presentation | `UI/desktop_portal/views/checkin_counter_page.py` | `P0` |
-| - [ ] | **TSK-20** | Đồng bộ dữ liệu thật trên MembersPage & PosBillingPage| Presentation | `UI/desktop_portal/views/members_page.py`, `pos_billing_page.py`| `P2` |
+| - [x] | **TSK-18** | Tích hợp RegisterMemberDialog (Form đăng ký & VietQR)| Presentation | `UI/desktop_portal/dialogs/register_member_dialog.py` | `P0` |
+| - [x] | **TSK-19** | Tích hợp CheckInCounterPage (Camera QR & Nhập tay) | Presentation | `UI/desktop_portal/views/checkin_counter_page.py` | `P0` |
+| - [x] | **TSK-20** | Đồng bộ dữ liệu thật trên MembersPage & PosBillingPage| Presentation | `UI/desktop_portal/views/members_page.py`, `pos_billing_page.py`| `P2` |
 | - [ ] | **TSK-21** | Viết Unit Test Suite cho Services (Pytest AAA) | Testing | `UI/tests/test_member_service.py`, `test_checkin_service.py` | `P1` |
 | - [ ] | **TSK-22** | Viết Integration Test end-to-end trên MySQL Docker | Testing | `UI/tests/test_integration_flow.py` | `P1` |
 | - [ ] | **TSK-23** | Thiết lập & Kiểm chứng GitHub Actions CI Pipeline | CI / DevOps | `.github/workflows/ci.yml` | `P1` |

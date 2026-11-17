@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from typing import Optional, Type
+from typing import Any, Dict, List, Optional, Type
 
 from mysql.connector.cursor import MySQLCursor
 
-from constants import SubscriptionStatus
+from constants import RoleID, SubscriptionStatus
 from database.db_connection import db
 from models.member_subscription import MemberSubscription
 from repositories.base_repository import BaseRepository
@@ -72,6 +72,44 @@ class SubscriptionRepository(BaseRepository[MemberSubscription]):
             (username, SubscriptionStatus.ACTIVE.value),
         )
         return MemberSubscription.from_row(rows[0]) if rows else None
+
+    def get_member_summaries(self, limit: int = 100) -> List[Dict[str, Any]]:
+        """Fetch members with their newest subscription and package details."""
+        if isinstance(limit, bool) or not isinstance(limit, int) or limit < 1:
+            raise ValueError("limit phải là số nguyên dương.")
+
+        query = (
+            "SELECT `User`.`UserName` AS `username`, "
+            "`User`.`FullName` AS `full_name`, `User`.`Phone` AS `phone`, "
+            "`User`.`Email` AS `email`, `User`.`Status` AS `user_status`, "
+            "`MemberSubscription`.`SubscriptionId` AS `subscription_id`, "
+            "`MemberSubscription`.`QrCode` AS `qr_code`, "
+            "`MemberSubscription`.`StartDate` AS `start_date`, "
+            "`MemberSubscription`.`EndDate` AS `end_date`, "
+            "`MemberSubscription`.`Status` AS `subscription_status`, "
+            "`MemberSubscription`.`RemainingCheckInSessions` "
+            "AS `remaining_check_in_sessions`, "
+            "`MemberSubscription`.`RemainingPtSessions` "
+            "AS `remaining_pt_sessions`, "
+            "`MemberSubscription`.`AssignedPtId` AS `assigned_pt_id`, "
+            "`MemberSubscription`.`PlanId` AS `plan_id`, "
+            "`PackagePlan`.`Name` AS `plan_name` "
+            "FROM `User` "
+            "LEFT JOIN `MemberSubscription` ON "
+            "`MemberSubscription`.`SubscriptionId` = ("
+            "SELECT `newest`.`SubscriptionId` "
+            "FROM `MemberSubscription` AS `newest` "
+            "WHERE `newest`.`UserName` = `User`.`UserName` "
+            "ORDER BY `newest`.`StartDate` DESC, "
+            "`newest`.`created_at` DESC, "
+            "`newest`.`SubscriptionId` DESC LIMIT 1) "
+            "LEFT JOIN `PackagePlan` ON "
+            "`PackagePlan`.`PlanId` = `MemberSubscription`.`PlanId` "
+            "WHERE `User`.`RoleID` = %s "
+            "ORDER BY `User`.`created_at` DESC, `User`.`UserName` ASC "
+            "LIMIT %s"
+        )
+        return self.execute_query(query, (RoleID.MEMBER.value, limit))
 
     def decrement_sessions(self, subscription_id: str) -> bool:
         """Atomically decrement a positive session count for an active card."""

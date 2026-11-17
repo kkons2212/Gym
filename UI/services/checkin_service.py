@@ -12,6 +12,7 @@ from typing import Any, Dict, Optional
 from uuid import uuid4
 
 from constants import CheckInMethod, CheckInStatus, DenialReason
+from database.db_connection import db
 from exceptions import CheckInDeniedException
 from models.check_in_log import CheckInLog
 from models.member_subscription import MemberSubscription
@@ -38,6 +39,7 @@ class CheckInService:
         self.user_repo = user_repo or UserRepository()
         self.check_in_repo = check_in_repo or CheckInRepository()
         self.plan_repo = plan_repo or PackagePlanRepository()
+        self.db = db
 
     def process_checkin(
         self,
@@ -59,16 +61,18 @@ class CheckInService:
             check_date: Ngày điểm danh (mặc định: ngày hiện tại).
 
         Returns:
-            Dict[str, Any]: Thông tin chi tiết lượt điểm danh để UI hiển thị thẻ xanh.
+            Dict[str, Any]: Thông tin lượt điểm danh để UI hiển thị.
 
         Raises:
-            CheckInDeniedException: Khi thẻ không đủ điều kiện (hết hạn, hết lượt, không tìm thấy).
+            CheckInDeniedException: Thẻ không đủ điều kiện điểm danh.
         """
         target_date = check_date or date.today()
         key = key.strip() if key else ""
 
         if not key:
-            raise CheckInDeniedException("Mã QR hoặc thông tin tra cứu không được để trống.")
+            raise CheckInDeniedException(
+                "Mã QR hoặc thông tin tra cứu không được để trống."
+            )
 
         subscription: Optional[MemberSubscription] = None
         user: Optional[User] = None
@@ -82,12 +86,15 @@ class CheckInService:
             # Tra cứu thủ công qua SĐT hoặc Username
             user = self.user_repo.find_by_phone_or_username(key)
             if user:
-                subscription = self.sub_repo.find_active_by_username(user.username)
+                subscription = self.sub_repo.find_active_by_username(
+                    user.username
+                )
 
         # 2. Xử lý trường hợp không tìm thấy thẻ hoặc hội viên
         if not subscription or not user:
             logger.warning(
-                "Từ chối điểm danh: Không tìm thấy thẻ hoặc hội viên khớp với key='%s' (method=%s)",
+                "Từ chối điểm danh: Không tìm thấy thẻ hoặc hội viên "
+                "khớp với key='%s' (method=%s)",
                 key,
                 method,
             )
@@ -98,37 +105,34 @@ class CheckInService:
 
         # 3. Kiểm tra tính hợp lệ của tài khoản người dùng
         if not user.is_active():
-            self._record_denial_log(
+            check_in_id = self._record_denial_log(
                 subscription=subscription,
                 user=user,
                 reason=DenialReason.USER_LOCKED.value,
                 admin_id=admin_id,
             )
-            raise CheckInDeniedException(DenialReason.USER_LOCKED.value, username=user.username)
+            raise CheckInDeniedException(
+                DenialReason.USER_LOCKED.value,
+                username=user.username,
+                check_in_id=check_in_id,
+            )
 
         # 4. Kiểm tra Guard Clauses của thẻ hội viên (is_eligible_for_checkin)
         is_eligible, reason = subscription.is_eligible_for_checkin(target_date)
         if not is_eligible:
-            self._record_denial_log(
+            check_in_id = self._record_denial_log(
                 subscription=subscription,
                 user=user,
                 reason=reason,
                 admin_id=admin_id,
             )
-            raise CheckInDeniedException(reason, username=user.username)
+            raise CheckInDeniedException(
+                reason, username=user.username, check_in_id=check_in_id
+            )
 
-        # 5. Điểm danh thành công: Trừ 1 buổi nếu gói có giới hạn lượt
-        if (
-            subscription.remaining_check_in_sessions is not None
-            and subscription.remaining_check_in_sessions > 0
-        ):
-            self.sub_repo.decrement_sessions(subscription.subscription_id)
-            subscription.remaining_check_in_sessions -= 1
-
-        # 6. Ghi nhận nhật ký CheckInLog thành công
+        # 5. Ghi log thành công cùng transaction với việc giảm lượt.
         now_dt = datetime.now()
         check_in_id = f"CK{uuid4().hex[:6].upper()}"
-
         success_log = CheckInLog(
             check_in_id=check_in_id,
             username=user.username,
@@ -138,9 +142,40 @@ class CheckInService:
             subscription_id=subscription.subscription_id,
             verified_by_admin_id=admin_id,
         )
-        self.check_in_repo.create(success_log)
+        decremented = False
+        has_limited_sessions = (
+            subscription.remaining_check_in_sessions is not None
+            and subscription.remaining_check_in_sessions > 0
+        )
+        with self.db.transaction(dictionary=False) as cursor:
+            if has_limited_sessions:
+                decremented = self.sub_repo.decrement_sessions_with_cursor(
+                    cursor, subscription.subscription_id
+                )
+            else:
+                decremented = True
 
-        # 7. Lấy tên gói tập để hiển thị lên thẻ Preview
+            if decremented:
+                self.check_in_repo.create_with_cursor(cursor, success_log)
+
+        if not decremented:
+            reason = DenialReason.OUT_OF_SESSIONS.value
+            denied_check_in_id = self._record_denial_log(
+                subscription=subscription,
+                user=user,
+                reason=reason,
+                admin_id=admin_id,
+            )
+            raise CheckInDeniedException(
+                reason,
+                username=user.username,
+                check_in_id=denied_check_in_id,
+            )
+
+        if has_limited_sessions:
+            subscription.remaining_check_in_sessions -= 1
+
+        # 6. Lấy tên gói tập để hiển thị lên thẻ Preview
         plan = self.plan_repo.get_by_id(subscription.plan_id)
         plan_name = plan.name if plan else subscription.plan_id
 
@@ -171,19 +206,18 @@ class CheckInService:
         user: User,
         reason: str,
         admin_id: Optional[str] = None,
-    ) -> None:
+    ) -> str:
         """Ghi nhận lịch sử từ chối điểm danh vào bảng CheckInLog."""
-        try:
-            check_in_id = f"CK{uuid4().hex[:6].upper()}"
-            denial_log = CheckInLog(
-                check_in_id=check_in_id,
-                username=user.username,
-                check_in_at=datetime.now(),
-                status=CheckInStatus.DENIED.value,
-                denial_reason=reason,
-                subscription_id=subscription.subscription_id,
-                verified_by_admin_id=admin_id,
-            )
-            self.check_in_repo.create(denial_log)
-        except Exception as err:
-            logger.error("Không thể ghi CheckInLog từ chối: %s", err)
+        check_in_id = f"CK{uuid4().hex[:6].upper()}"
+        denial_log = CheckInLog(
+            check_in_id=check_in_id,
+            username=user.username,
+            check_in_at=datetime.now(),
+            status=CheckInStatus.DENIED.value,
+            denial_reason=reason,
+            subscription_id=subscription.subscription_id,
+            verified_by_admin_id=admin_id,
+        )
+        with self.db.transaction(dictionary=False) as cursor:
+            self.check_in_repo.create_with_cursor(cursor, denial_log)
+        return check_in_id
