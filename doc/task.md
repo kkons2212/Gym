@@ -263,7 +263,7 @@ flowchart LR
 
 ### GIAI ĐOẠN 3: TẦNG DATA ACCESS LAYER (REPOSITORY PATTERN)
 
-#### - [ ] Task 3.1 (TSK-09): Xây dựng Abstract Base Repository
+#### - [x] Task 3.1 (TSK-09): Xây dựng Abstract Base Repository
 * **Tệp tin:** `UI/repositories/base_repository.py`
 * **Mục tiêu:** Cung cấp khung thao tác CSDL chuẩn hóa (Generic Pattern), cách ly hoàn toàn câu lệnh SQL.
 * **Chi tiết thực thi:**
@@ -271,7 +271,7 @@ flowchart LR
   * Hỗ trợ hàm trợ giúp thực thi SQL an toàn có tham số hóa `%s` (`execute_query`, `execute_scalar`).
   * Tự động wrap lỗi `mysql.connector.Error` thành `DatabaseTransactionException`.
 
-#### - [ ] Task 3.2 (TSK-10): Triển khai UserRepository
+#### - [x] Task 3.2 (TSK-10): Triển khai UserRepository
 * **Tệp tin:** `UI/repositories/user_repository.py`
 * **Mục tiêu:** Xử lý toàn bộ truy vấn liên quan đến tài khoản người dùng và hồ sơ hội viên.
 * **Phương thức cần có:**
@@ -281,14 +281,14 @@ flowchart LR
   * `find_by_phone_or_username(search_key: str) -> Optional[User]`: Phục vụ tra cứu thủ công tại quầy điểm danh.
   * `get_all_members(limit: int = 100) -> List[User]`: Lấy danh sách hội viên cho trang quản lý.
 
-#### - [ ] Task 3.3 (TSK-11): Triển khai PackagePlanRepository
+#### - [x] Task 3.3 (TSK-11): Triển khai PackagePlanRepository
 * **Tệp tin:** `UI/repositories/package_plan_repository.py`
 * **Mục tiêu:** Truy xuất danh mục gói dịch vụ niêm yết.
 * **Phương thức cần có:**
   * `get_active_plans() -> List[PackagePlan]`: Lấy danh sách gói đang kinh doanh (`is_Active = 1`).
   * `get_by_id(plan_id: str) -> Optional[PackagePlan]`: Lấy thông tin chi tiết gói tập theo mã.
 
-#### - [ ] Task 3.4 (TSK-12): Triển khai SubscriptionRepository
+#### - [x] Task 3.4 (TSK-12): Triển khai SubscriptionRepository
 * **Tệp tin:** `UI/repositories/subscription_repository.py`
 * **Mục tiêu:** Quản trị vòng đời thẻ tập, thời hạn và số buổi check-in.
 * **Phương thức cần có:**
@@ -297,7 +297,7 @@ flowchart LR
   * `find_active_by_username(username: str) -> Optional[MemberSubscription]`: Lấy thẻ đang `ACTIVE` mới nhất của hội viên.
   * `decrement_sessions(subscription_id: str) -> bool`: Giảm 1 lượt `RemainingCheckInSessions` khi điểm danh thành công.
 
-#### - [ ] Task 3.5 (TSK-13): Triển khai InvoiceRepository & NotificationRepository
+#### - [x] Task 3.5 (TSK-13): Triển khai InvoiceRepository & NotificationRepository
 * **Tệp tin:** `UI/repositories/invoice_repository.py`, `UI/repositories/notification_repository.py`
 * **Mục tiêu:** Lưu trữ hóa đơn thu tiền và thông báo hệ thống.
 * **Phương thức cần có:**
@@ -305,12 +305,13 @@ flowchart LR
   * `InvoiceRepository.get_recent_invoices(limit: int = 50) -> List[Invoice]`
   * `NotificationRepository.create_with_cursor(cursor, noti: Notification) -> None`
 
-#### - [ ] Task 3.6 (TSK-14): Triển khai CheckInRepository
+#### - [x] Task 3.6 (TSK-14): Triển khai CheckInRepository
 * **Tệp tin:** `UI/repositories/check_in_repository.py`
 * **Mục tiêu:** Lưu vết lượt ra/vào và truy vấn lịch sử điểm danh hôm nay.
 * **Phương thức cần có:**
   * `create(log: CheckInLog) -> None`: Ghi nhận 1 lượt điểm danh (thành công hoặc bị từ chối).
   * `get_today_logs(limit: int = 50) -> List[dict]`: Lấy danh sách điểm danh trong ngày (kèm Họ tên hội viên qua JOIN bảng `User`) để nạp vào bảng quầy lễ tân.
+* **Lưu ý schema:** `CheckInLog.SubscriptionId` hiện là `NOT NULL` và có khóa ngoại. Vì vậy, chưa thể lưu log từ chối khi không tìm thấy hội viên/thẻ nếu không có `SubscriptionId`; cần giải quyết mâu thuẫn này trước khi hoàn thiện luồng UC03 ở Giai đoạn 4.
 
 ---
 
@@ -474,12 +475,12 @@ flowchart LR
 | - [ ] | **TSK-06** | Xây dựng BaseModel và Entity Role & User | OOP Models | `UI/models/base_model.py`, `role.py`, `user.py` | `P1` |
 | - [ ] | **TSK-07** | Xây dựng Entity PackagePlan & MemberSubscription | OOP Models | `UI/models/package_plan.py`, `member_subscription.py`| `P1` |
 | - [ ] | **TSK-08** | Xây dựng Entity Invoice, CheckInLog, Notification | OOP Models | `UI/models/invoice.py`, `check_in_log.py`, `notification.py`| `P1` |
-| - [ ] | **TSK-09** | Xây dựng Abstract BaseRepository Generic | Data Access | `UI/repositories/base_repository.py` | `P1` |
-| - [ ] | **TSK-10** | Xây dựng UserRepository (Tìm SĐT/UserName) | Data Access | `UI/repositories/user_repository.py` | `P1` |
-| - [ ] | **TSK-11** | Xây dựng PackagePlanRepository (Lấy gói Active) | Data Access | `UI/repositories/package_plan_repository.py` | `P1` |
-| - [ ] | **TSK-12** | Xây dựng SubscriptionRepository (Tìm QR, trừ buổi) | Data Access | `UI/repositories/subscription_repository.py` | `P1` |
-| - [ ] | **TSK-13** | Xây dựng InvoiceRepository & NotificationRepository | Data Access | `UI/repositories/invoice_repository.py`, `notification_repo.py` | `P1` |
-| - [ ] | **TSK-14** | Xây dựng CheckInRepository (Ghi log, lấy log hôm nay)| Data Access | `UI/repositories/check_in_repository.py` | `P1` |
+| - [x] | **TSK-09** | Xây dựng Abstract BaseRepository Generic | Data Access | `UI/repositories/base_repository.py` | `P1` |
+| - [x] | **TSK-10** | Xây dựng UserRepository (Tìm SĐT/UserName) | Data Access | `UI/repositories/user_repository.py` | `P1` |
+| - [x] | **TSK-11** | Xây dựng PackagePlanRepository (Lấy gói Active) | Data Access | `UI/repositories/package_plan_repository.py` | `P1` |
+| - [x] | **TSK-12** | Xây dựng SubscriptionRepository (Tìm QR, trừ buổi) | Data Access | `UI/repositories/subscription_repository.py` | `P1` |
+| - [x] | **TSK-13** | Xây dựng InvoiceRepository & NotificationRepository | Data Access | `UI/repositories/invoice_repository.py`, `notification_repository.py` | `P1` |
+| - [x] | **TSK-14** | Xây dựng CheckInRepository (Ghi log, lấy log hôm nay)| Data Access | `UI/repositories/check_in_repository.py` | `P1` |
 | - [ ] | **TSK-15** | Tích hợp Dịch vụ VietQR Sandbox API bằng requests | Service / API | `UI/services/vietqr_service.py` | `P1` |
 | - [ ] | **TSK-16** | Xây dựng MemberService (Giao dịch tạo hội viên mới) | Service / Domain | `UI/services/member_service.py` | `P0` |
 | - [ ] | **TSK-17** | Xây dựng CheckInService (Kiểm tra thẻ & trừ lượt) | Service / Domain | `UI/services/checkin_service.py` | `P0` |
