@@ -122,7 +122,7 @@ c:\Users\nguye\Desktop\Gym\
 
 ## 4. BẢNG PHÂN RÃ CHI TIẾT TỪNG TASK (PHASE-BY-PHASE DETAILED WORK BREAKDOWN)
 
-Kế hoạch được chia thành **6 Giai đoạn (Phases)** với **22 Nhiệm vụ nguyên tử (Atomic Tasks)** được đặc tả chi tiết tiêu chí kỹ thuật:
+Kế hoạch được chia thành **6 Giai đoạn (Phases)** với **23 Nhiệm vụ nguyên tử (Atomic Tasks)** được đặc tả chi tiết tiêu chí kỹ thuật:
 
 ```mermaid
 flowchart LR
@@ -137,7 +137,7 @@ flowchart LR
 
 ### GIAI ĐOẠN 1: HẠ TẦNG DOCKER, CSDL MYSQL & MÔI TRƯỜNG PHÁT TRIỂN
 
-#### ● Task 1.1: Thiết lập cấu hình Docker Container MySQL 8.0
+#### - [x] Task 1.1 (TSK-01): Thiết lập cấu hình Docker Container MySQL 8.0
 * **Tệp tin:** `docker-compose.yml`
 * **Mục tiêu:** Khởi chạy container MySQL 8.0 cô lập, phục vụ lưu trữ dữ liệu bền vững qua volume.
 * **Quy chuẩn kỹ thuật:**
@@ -151,7 +151,7 @@ flowchart LR
   * Lệnh `docker-compose up -d` khởi chạy container ở trạng thái `healthy` hoặc `running`.
   * Có thể kết nối qua cổng 3306 bằng tài khoản `gym_user`.
 
-#### ● Task 1.2: Xây dựng kịch bản DDL MySQL từ `GymManagement_Physical_Model.sql`
+#### - [x] Task 1.2 (TSK-02): Xây dựng kịch bản DDL MySQL từ `GymManagement_Physical_Model.sql`
 * **Tệp tin:** `init_mysql.sql`
 * **Mục tiêu:** Tạo 7 bảng quan hệ khớp 100% tên bảng và tên cột với tài liệu vật lý, nạp dữ liệu mẫu ban đầu.
 * **Chi tiết thực thi:**
@@ -166,7 +166,7 @@ flowchart LR
   * Script thực thi thành công không lỗi cú pháp trên MySQL 8.0.
   * Các ràng buộc khóa ngoại (Foreign Key) và Index được thiết lập đầy đủ.
 
-#### ● Task 1.3: Cấu hình biến môi trường & Quản trị bí mật (Zero-Secrets Rule)
+#### - [x] Task 1.3 (TSK-03): Cấu hình biến môi trường & Quản trị bí mật (Zero-Secrets Rule)
 * **Tệp tin:** `.env.example`, `.env`, `UI/config/settings.py`
 * **Mục tiêu:** Tuân thủ nguyên tắc Zero-Secrets trong [python_dev_rules.md](python_dev_rules.md), tuyệt đối không hardcode mật khẩu hay API key trong mã nguồn.
 * **Chi tiết thực thi:**
@@ -192,7 +192,7 @@ flowchart LR
 
 ### GIAI ĐOẠN 2: KẾT NỐI CSDL & TẦNG THỰC THỂ OOP (MODELS & CONNECTION)
 
-#### ● Task 2.1: Triển khai lớp quản lý kết nối CSDL Singleton Connection Pool
+#### - [ ] Task 2.1 (TSK-04): Triển khai lớp quản lý kết nối CSDL Singleton Connection Pool
 * **Tệp tin:** `UI/database/db_connection.py`
 * **Mục tiêu:** Cung cấp kết nối MySQL an toàn luồng (Thread-safe) sử dụng connection pooling và Context Manager.
 * **Quy chuẩn kỹ thuật:**
@@ -204,7 +204,7 @@ flowchart LR
   * Gọi được `with db.transaction() as cursor:` thực thi lệnh thử nghiệm thành công.
   * Mô phỏng lệnh SQL lỗi -> Hệ thống tự rollback an toàn, không rò rỉ kết nối.
 
-#### ● Task 2.2: Xây dựng hằng số tập trung & Cây phân cấp ngoại lệ
+#### - [ ] Task 2.2 (TSK-05): Xây dựng hằng số tập trung & Cây phân cấp ngoại lệ
 * **Tệp tin:** `UI/constants.py`, `UI/exceptions.py`
 * **Mục tiêu:** Triệt tiêu số/chuỗi ma thuật (No Magic Numbers/Strings) và xây dựng hệ thống báo lỗi ngữ nghĩa cao.
 * **Chi tiết thực thi:**
@@ -225,30 +225,45 @@ flowchart LR
   * Toàn bộ ngoại lệ kế thừa từ `GymBaseException`.
   * Có thuộc tính `error_code` hỗ trợ truy vết lỗi nhanh.
 
-#### ● Task 2.3: Xây dựng BaseModel và 7 Thực thể OOP (Domain Entities)
-* **Tệp tin:** `UI/models/base_model.py`, `role.py`, `user.py`, `package_plan.py`, `member_subscription.py`, `invoice.py`, `check_in_log.py`, `notification.py`
-* **Mục tiêu:** Định nghĩa các lớp thực thể OOP thuần túy (POPO - Plain Old Python Objects) đại diện cho dữ liệu nghiệp vụ.
-* **Quy chuẩn kỹ thuật (Tuân thủ KISS, SRP, Type Hints 100%):**
+#### - [ ] Task 2.3 (TSK-06): Xây dựng BaseModel và Entity Role & User
+* **Tệp tin:** `UI/models/base_model.py`, `role.py`, `user.py`
+* **Mục tiêu:** Định nghĩa các lớp thực thể OOP đại diện cho quyền hạn và người dùng/hội viên.
+* **Quy chuẩn kỹ thuật:**
   * `BaseModel`: Cung cấp phương thức `to_dict()`, `from_row(row_dict)`.
-  * `User`: Chứa các thuộc tính khớp bảng `User` (`username`, `role_id`, `full_name`, `phone`, `email`, `password_hash`, `gender`, `status`, `created_at`). Bổ sung phương thức `is_active() -> bool`.
-  * `PackagePlan`: Chứa các thuộc tính khớp bảng `PackagePlan` (`plan_id`, `name`, `duration_days`, `price`, `max_check_in_sessions`...).
-  * `MemberSubscription`: Bổ sung phương thức nghiệp vụ cốt lõi:
+  * `Role`: Thuộc tính `role_id`, `role_name`.
+  * `User`: Thuộc tính `username`, `role_id`, `full_name`, `phone`, `email`, `password_hash`, `gender`, `status`, `created_at`. Bổ sung phương thức `is_active() -> bool` và validation SĐT.
+* **Tiêu chí nghiệm thu (DoD):**
+  * 100% Type Hints và Docstring Google-style.
+
+#### - [ ] Task 2.4 (TSK-07): Xây dựng Entity PackagePlan & MemberSubscription
+* **Tệp tin:** `UI/models/package_plan.py`, `member_subscription.py`
+* **Mục tiêu:** Định nghĩa lớp gói tập và thẻ hội viên kèm logic kiểm tra điều kiện check-in.
+* **Quy chuẩn kỹ thuật:**
+  * `PackagePlan`: Thuộc tính `plan_id`, `name`, `duration_days`, `price`, `max_check_in_sessions`...
+  * `MemberSubscription`: Thuộc tính `subscription_id`, `qr_code`, `start_date`, `end_date`, `remaining_check_in_sessions`, `status`...
+  * Bổ sung hàm nghiệp vụ cốt lõi:
     ```python
     def is_eligible_for_checkin(self, target_date: date = None) -> Tuple[bool, str]:
         # Guard clause: Kiểm tra ACTIVE, EndDate, RemainingSessions
     ```
-  * `Invoice`: Thuộc tính khớp bảng `Invoice`. Chỉ chấp nhận `payment_method` là `CASH` hoặc `VIETQR`.
-  * `CheckInLog`: Thuộc tính khớp bảng `CheckInLog`.
-  * `Notification`: Thuộc tính khớp bảng `Notification`.
 * **Tiêu chí nghiệm thu (DoD):**
-  * 100% các class có Type Hints đầy đủ và Docstring Google-style.
-  * Tên thuộc tính ánh xạ chuẩn xác với các cột CSDL.
+  * `is_eligible_for_checkin()` xử lý đúng các trường hợp hết hạn, hết buổi, trạng thái không ACTIVE.
+
+#### - [ ] Task 2.5 (TSK-08): Xây dựng Entity Invoice, CheckInLog, Notification
+* **Tệp tin:** `UI/models/invoice.py`, `check_in_log.py`, `notification.py`
+* **Mục tiêu:** Định nghĩa lớp hóa đơn thu tiền, nhật ký điểm danh và thông báo.
+* **Quy chuẩn kỹ thuật:**
+  * `Invoice`: Thuộc tính khớp bảng `Invoice`. Chỉ chấp nhận `payment_method` là `CASH` hoặc `VIETQR`.
+  * `CheckInLog`: Thuộc tính `check_in_id`, `check_in_at`, `status`, `denial_reason`...
+  * `Notification`: Thuộc tính `notification_id`, `title`, `message`, `is_read`, `created_at`...
+* **Tiêu chí nghiệm thu (DoD):**
+  * Khớp 100% kiểu dữ liệu và trường với physical schema.
 
 ---
 
 ### GIAI ĐOẠN 3: TẦNG DATA ACCESS LAYER (REPOSITORY PATTERN)
 
-#### ● Task 3.1: Xây dựng Abstract Base Repository
+#### - [ ] Task 3.1 (TSK-09): Xây dựng Abstract Base Repository
 * **Tệp tin:** `UI/repositories/base_repository.py`
 * **Mục tiêu:** Cung cấp khung thao tác CSDL chuẩn hóa (Generic Pattern), cách ly hoàn toàn câu lệnh SQL.
 * **Chi tiết thực thi:**
@@ -256,7 +271,7 @@ flowchart LR
   * Hỗ trợ hàm trợ giúp thực thi SQL an toàn có tham số hóa `%s` (`execute_query`, `execute_scalar`).
   * Tự động wrap lỗi `mysql.connector.Error` thành `DatabaseTransactionException`.
 
-#### ● Task 3.2: Triển khai UserRepository
+#### - [ ] Task 3.2 (TSK-10): Triển khai UserRepository
 * **Tệp tin:** `UI/repositories/user_repository.py`
 * **Mục tiêu:** Xử lý toàn bộ truy vấn liên quan đến tài khoản người dùng và hồ sơ hội viên.
 * **Phương thức cần có:**
@@ -266,14 +281,14 @@ flowchart LR
   * `find_by_phone_or_username(search_key: str) -> Optional[User]`: Phục vụ tra cứu thủ công tại quầy điểm danh.
   * `get_all_members(limit: int = 100) -> List[User]`: Lấy danh sách hội viên cho trang quản lý.
 
-#### ● Task 3.3: Triển khai PackagePlanRepository
+#### - [ ] Task 3.3 (TSK-11): Triển khai PackagePlanRepository
 * **Tệp tin:** `UI/repositories/package_plan_repository.py`
 * **Mục tiêu:** Truy xuất danh mục gói dịch vụ niêm yết.
 * **Phương thức cần có:**
   * `get_active_plans() -> List[PackagePlan]`: Lấy danh sách gói đang kinh doanh (`is_Active = 1`).
   * `get_by_id(plan_id: str) -> Optional[PackagePlan]`: Lấy thông tin chi tiết gói tập theo mã.
 
-#### ● Task 3.4: Triển khai SubscriptionRepository
+#### - [ ] Task 3.4 (TSK-12): Triển khai SubscriptionRepository
 * **Tệp tin:** `UI/repositories/subscription_repository.py`
 * **Mục tiêu:** Quản trị vòng đời thẻ tập, thời hạn và số buổi check-in.
 * **Phương thức cần có:**
@@ -282,7 +297,7 @@ flowchart LR
   * `find_active_by_username(username: str) -> Optional[MemberSubscription]`: Lấy thẻ đang `ACTIVE` mới nhất của hội viên.
   * `decrement_sessions(subscription_id: str) -> bool`: Giảm 1 lượt `RemainingCheckInSessions` khi điểm danh thành công.
 
-#### ● Task 3.5: Triển khai InvoiceRepository & NotificationRepository
+#### - [ ] Task 3.5 (TSK-13): Triển khai InvoiceRepository & NotificationRepository
 * **Tệp tin:** `UI/repositories/invoice_repository.py`, `UI/repositories/notification_repository.py`
 * **Mục tiêu:** Lưu trữ hóa đơn thu tiền và thông báo hệ thống.
 * **Phương thức cần có:**
@@ -290,7 +305,7 @@ flowchart LR
   * `InvoiceRepository.get_recent_invoices(limit: int = 50) -> List[Invoice]`
   * `NotificationRepository.create_with_cursor(cursor, noti: Notification) -> None`
 
-#### ● Task 3.6: Triển khai CheckInRepository
+#### - [ ] Task 3.6 (TSK-14): Triển khai CheckInRepository
 * **Tệp tin:** `UI/repositories/check_in_repository.py`
 * **Mục tiêu:** Lưu vết lượt ra/vào và truy vấn lịch sử điểm danh hôm nay.
 * **Phương thức cần có:**
@@ -301,7 +316,7 @@ flowchart LR
 
 ### GIAI ĐOẠN 4: TẦNG NGHIỆP VỤ (SERVICE LAYER & EXTERNAL APIS)
 
-#### ● Task 4.1: Tích hợp Dịch vụ VietQR Sandbox API
+#### - [ ] Task 4.1 (TSK-15): Tích hợp Dịch vụ VietQR Sandbox API
 * **Tệp tin:** `UI/services/vietqr_service.py`
 * **Mục tiêu:** Gọi API Sandbox của VietQR (`https://api.vietqr.io/v2/generate`) bằng thư viện `requests` để sinh mã QR động chứa số tiền và nội dung chuyển khoản, kèm cơ chế fallback tạo mã offline bằng `qrcode`.
 * **Chi tiết thực thi:**
@@ -313,7 +328,7 @@ flowchart LR
 * **Tiêu chí nghiệm thu (DoD):**
   * Trả về ảnh mã QR hợp lệ cả khi có mạng lẫn khi ngắt kết nối mạng.
 
-#### ● Task 4.2: Xây dựng MemberService (Nghiệp vụ UC02.1 & UC05.1)
+#### - [ ] Task 4.2 (TSK-16): Xây dựng MemberService (Nghiệp vụ UC02.1 & UC05.1)
 * **Tệp tin:** `UI/services/member_service.py`
 * **Mục tiêu:** Thực thi nghiệp vụ Đăng ký hội viên mới, kích hoạt gói tập và lập hóa đơn thu tiền trong một Transaction an toàn (All-or-Nothing).
 * **Quy trình chi tiết:**
@@ -337,7 +352,7 @@ flowchart LR
 * **Tiêu chí nghiệm thu (DoD):**
   * Dữ liệu được ghi đồng thời vào 4 bảng. Nếu 1 bảng lỗi, toàn bộ dữ liệu bị rollback sạch sẽ.
 
-#### ● Task 4.3: Xây dựng CheckInService (Nghiệp vụ UC03.1 & UC03.2)
+#### - [ ] Task 4.3 (TSK-17): Xây dựng CheckInService (Nghiệp vụ UC03.1 & UC03.2)
 * **Tệp tin:** `UI/services/checkin_service.py`
 * **Mục tiêu:** Thực thi nghiệp vụ Điểm danh kiểm soát vào phòng tập, kiểm tra điều kiện thẻ và tự động trừ buổi.
 * **Quy trình chi tiết:**
@@ -364,7 +379,7 @@ flowchart LR
 
 ### GIAI ĐOẠN 5: TÍCH HỢP GIAO DIỆN PYQT6 (PRESENTATION INTEGRATION)
 
-#### ● Task 5.1: Cải tạo Hộp thoại Đăng Ký Hội Viên Mới
+#### - [ ] Task 5.1 (TSK-18): Cải tạo Hộp thoại Đăng Ký Hội Viên Mới
 * **Tệp tin:** `UI/desktop_portal/dialogs/register_member_dialog.py`
 * **Mục tiêu:** Kết nối giao diện đăng ký với `MemberService` thật, loại bỏ hoàn toàn `mock_data.py`.
 * **Quy chuẩn UI/UX bắt buộc (Tuân thủ `python_ui_rules.md` & `python_ux_rules.md`):**
@@ -379,7 +394,7 @@ flowchart LR
   * Đăng ký hội viên mới thành công và xuất hiện trong MySQL.
   * Không thể click đúp nút submit.
 
-#### ● Task 5.2: Cải tạo Màn hình Quầy Điểm Danh Check-in
+#### - [ ] Task 5.2 (TSK-19): Cải tạo Màn hình Quầy Điểm Danh Check-in
 * **Tệp tin:** `UI/desktop_portal/views/checkin_counter_page.py`
 * **Mục tiêu:** Kết nối quầy điểm danh với `CheckInService` thật, hỗ trợ camera quét QR và nhập tay SĐT.
 * **Quy chuẩn UI/UX bắt buộc:**
@@ -395,7 +410,7 @@ flowchart LR
   * Quét QR hoặc nhập SĐT điểm danh thành công trong $< 1$ giây.
   * Số buổi còn lại trên CSDL giảm đi 1 ngay lập tức.
 
-#### ● Task 5.3: Đồng bộ dữ liệu thật trên MembersPage và PosBillingPage
+#### - [ ] Task 5.3 (TSK-20): Đồng bộ dữ liệu thật trên MembersPage và PosBillingPage
 * **Tệp tin:** `UI/desktop_portal/views/members_page.py`, `UI/desktop_portal/views/pos_billing_page.py`
 * **Mục tiêu:** Thay thế dữ liệu giả lập `mock_data.py` bằng dữ liệu sống từ `UserRepository` và `PackagePlanRepository`.
 * **Tiêu chí nghiệm thu (DoD):**
@@ -406,7 +421,7 @@ flowchart LR
 
 ### GIAI ĐOẠN 6: KIỂM THỬ TỰ ĐỘNG & NGHIỆM THU HỆ THỐNG
 
-#### ● Task 6.1: Viết Unit Tests cho MemberService và CheckInService
+#### - [ ] Task 6.1 (TSK-21): Viết Unit Tests cho MemberService và CheckInService
 * **Tệp tin:** `UI/tests/test_member_service.py`, `UI/tests/test_checkin_service.py`
 * **Mục tiêu:** Kiểm thử toàn bộ các nhánh rẽ nghiệp vụ độc lập không phụ thuộc CSDL bằng Mock Repository.
 * **Các ca kiểm thử bắt buộc (AAA Pattern):**
@@ -416,7 +431,7 @@ flowchart LR
   * `test_checkin_denied_when_expired`: Gói hết hạn phải trả về `DENIED` và ghi log từ chối.
   * `test_checkin_denied_when_sessions_exhausted`: Gói hết lượt phải từ chối.
 
-#### ● Task 6.2: Viết Integration Test kiểm thử luồng thực tế trên MySQL Docker
+#### - [ ] Task 6.2 (TSK-22): Viết Integration Test kiểm thử luồng thực tế trên MySQL Docker
 * **Tệp tin:** `UI/tests/test_integration_flow.py`
 * **Mục tiêu:** Kiểm thử chu trình liên hoàn (End-to-End) trên container MySQL thật:
   * Bước 1: Khởi tạo kết nối tới MySQL container.
@@ -426,7 +441,15 @@ flowchart LR
   * Bước 5: Kiểm tra số buổi còn lại trong CSDL giảm còn 9 buổi.
   * Bước 6: Dọn dẹp dữ liệu test.
 
-#### ● Task 6.3: Thẩm định Tiêu chuẩn Nghiệm thu Hoàn thành (Definition of Done Audit)
+#### - [ ] Task 6.3 (TSK-23): Thiết lập & Kiểm chứng GitHub Actions CI Pipeline
+* **Tệp tin:** `.github/workflows/ci.yml`
+* **Mục tiêu:** Tự động hóa 4 Quality Gates trước khi cho phép merge code vào nhánh `main`:
+  * Gate 1: Kiểm tra lỗi cú pháp và linting flake8.
+  * Gate 2: Khởi chạy MySQL 8.0 container và thực thi nạp DDL `init_mysql.sql`.
+  * Gate 3: Thực thi toàn bộ Pytest unit & integration tests.
+  * Gate 4: Chạy PyQt6 Headless Smoke Test (Offscreen) đảm bảo giao diện không bị crash khi import.
+
+#### - [ ] Task 6.4 (TSK-24): Thẩm định Tiêu chuẩn Nghiệm thu Hoàn thành (Definition of Done Audit)
 * **Mục tiêu:** Rà soát toàn bộ dự án theo bảng kiểm định chất lượng:
   * [ ] Docker MySQL container chạy ổn định trên cổng 3306.
   * [ ] 100% tên bảng và cột khớp với `GymManagement_Physical_Model.sql`.
@@ -437,40 +460,33 @@ flowchart LR
   * [ ] Khóa nút chống double-click hoạt động hoàn hảo.
   * [ ] 100% bài test trong `UI/tests/` chạy Passed (`pytest UI/tests`).
 
-#### ● Task 6.4: Thiết lập & Kiểm chứng GitHub Actions CI Pipeline
-* **Tệp tin:** `.github/workflows/ci.yml`
-* **Mục tiêu:** Tự động hóa 4 Quality Gates trước khi cho phép merge code vào nhánh `main`:
-  * Gate 1: Kiểm tra lỗi cú pháp và linting flake8.
-  * Gate 2: Khởi chạy MySQL 8.0 container và thực thi nạp DDL `init_mysql.sql`.
-  * Gate 3: Thực thi toàn bộ Pytest unit & integration tests.
-  * Gate 4: Chạy PyQt6 Headless Smoke Test (Offscreen) đảm bảo giao diện không bị crash khi import.
-
 ---
 
-## 5. BẢNG TỔNG HỢP MA TRẬN 23 TASK NGUYÊN TỬ
+## 5. BẢNG TỔNG HỢP MA TRẬN 24 TASK NGUYÊN TỬ
 
-| Mã Task | Tên Nhiệm Vụ Chi Tiết | Tầng Kiến Trúc | Tệp Tin Tác Động Chính | Độ Ưu Tiên |
-| :--- | :--- | :--- | :--- | :--- |
-| **TSK-01** | Cấu hình Docker Container MySQL 8.0 | Infrastructure | `docker-compose.yml` | `P0 (Chặn)` |
-| **TSK-02** | Xây dựng kịch bản DDL MySQL 7 bảng & Seed data | Database DDL | `init_mysql.sql` | `P0 (Chặn)` |
-| **TSK-03** | Cấu hình biến môi trường & Zero-Secrets | Configuration | `.env.example`, `UI/config/settings.py` | `P1` |
-| **TSK-04** | Cài đặt Singleton Connection Pool & Transaction Manager | Database Access | `UI/database/db_connection.py` | `P0 (Chặn)` |
-| **TSK-05** | Xây dựng Hằng số nghiệp vụ & Cây phân cấp ngoại lệ | Core / Utils | `UI/constants.py`, `UI/exceptions.py` | `P1` |
-| **TSK-06** | Xây dựng BaseModel và Entity Role & User | OOP Models | `UI/models/base_model.py`, `role.py`, `user.py` | `P1` |
-| **TSK-07** | Xây dựng Entity PackagePlan & MemberSubscription | OOP Models | `UI/models/package_plan.py`, `member_subscription.py`| `P1` |
-| **TSK-08** | Xây dựng Entity Invoice, CheckInLog, Notification | OOP Models | `UI/models/invoice.py`, `check_in_log.py`, `notification.py`| `P1` |
-| **TSK-09** | Xây dựng Abstract BaseRepository Generic | Data Access | `UI/repositories/base_repository.py` | `P1` |
-| **TSK-10** | Xây dựng UserRepository (Tìm SĐT/UserName) | Data Access | `UI/repositories/user_repository.py` | `P1` |
-| **TSK-11** | Xây dựng PackagePlanRepository (Lấy gói Active) | Data Access | `UI/repositories/package_plan_repository.py` | `P1` |
-| **TSK-12** | Xây dựng SubscriptionRepository (Tìm QR, trừ buổi) | Data Access | `UI/repositories/subscription_repository.py` | `P1` |
-| **TSK-13** | Xây dựng InvoiceRepository & NotificationRepository | Data Access | `UI/repositories/invoice_repository.py`, `notification_repo.py` | `P1` |
-| **TSK-14** | Xây dựng CheckInRepository (Ghi log, lấy log hôm nay)| Data Access | `UI/repositories/check_in_repository.py` | `P1` |
-| **TSK-15** | Tích hợp Dịch vụ VietQR Sandbox API bằng requests | Service / API | `UI/services/vietqr_service.py` | `P1` |
-| **TSK-16** | Xây dựng MemberService (Giao dịch tạo hội viên mới) | Service / Domain | `UI/services/member_service.py` | `P0` |
-| **TSK-17** | Xây dựng CheckInService (Kiểm tra thẻ & trừ lượt) | Service / Domain | `UI/services/checkin_service.py` | `P0` |
-| **TSK-18** | Tích hợp RegisterMemberDialog (Form đăng ký & VietQR)| Presentation | `UI/desktop_portal/dialogs/register_member_dialog.py` | `P0` |
-| **TSK-19** | Tích hợp CheckInCounterPage (Camera QR & Nhập tay) | Presentation | `UI/desktop_portal/views/checkin_counter_page.py` | `P0` |
-| **TSK-20** | Đồng bộ dữ liệu thật trên MembersPage & PosBillingPage| Presentation | `UI/desktop_portal/views/members_page.py`, `pos_billing_page.py`| `P2` |
-| **TSK-21** | Viết Unit Test Suite cho Services (Pytest AAA) | Testing | `UI/tests/test_member_service.py`, `test_checkin_service.py` | `P1` |
-| **TSK-22** | Viết Integration Test end-to-end trên MySQL Docker | Testing | `UI/tests/test_integration_flow.py` | `P1` |
-| **TSK-23** | Thiết lập & Kiểm chứng GitHub Actions CI Pipeline | CI / DevOps | `.github/workflows/ci.yml` | `P1` |
+| Trạng Thái | Mã Task | Tên Nhiệm Vụ Chi Tiết | Tầng Kiến Trúc | Tệp Tin Tác Động Chính | Độ Ưu Tiên |
+| :---: | :--- | :--- | :--- | :--- | :--- |
+| - [x] | **TSK-01** | Cấu hình Docker Container MySQL 8.0 | Infrastructure | `docker-compose.yml` | `P0 (Chặn)` |
+| - [x] | **TSK-02** | Xây dựng kịch bản DDL MySQL 7 bảng & Seed data | Database DDL | `init_mysql.sql` | `P0 (Chặn)` |
+| - [x] | **TSK-03** | Cấu hình biến môi trường & Zero-Secrets | Configuration | `.env.example`, `UI/config/settings.py` | `P1` |
+| - [ ] | **TSK-04** | Cài đặt Singleton Connection Pool & Transaction Manager | Database Access | `UI/database/db_connection.py` | `P0 (Chặn)` |
+| - [ ] | **TSK-05** | Xây dựng Hằng số nghiệp vụ & Cây phân cấp ngoại lệ | Core / Utils | `UI/constants.py`, `UI/exceptions.py` | `P1` |
+| - [ ] | **TSK-06** | Xây dựng BaseModel và Entity Role & User | OOP Models | `UI/models/base_model.py`, `role.py`, `user.py` | `P1` |
+| - [ ] | **TSK-07** | Xây dựng Entity PackagePlan & MemberSubscription | OOP Models | `UI/models/package_plan.py`, `member_subscription.py`| `P1` |
+| - [ ] | **TSK-08** | Xây dựng Entity Invoice, CheckInLog, Notification | OOP Models | `UI/models/invoice.py`, `check_in_log.py`, `notification.py`| `P1` |
+| - [ ] | **TSK-09** | Xây dựng Abstract BaseRepository Generic | Data Access | `UI/repositories/base_repository.py` | `P1` |
+| - [ ] | **TSK-10** | Xây dựng UserRepository (Tìm SĐT/UserName) | Data Access | `UI/repositories/user_repository.py` | `P1` |
+| - [ ] | **TSK-11** | Xây dựng PackagePlanRepository (Lấy gói Active) | Data Access | `UI/repositories/package_plan_repository.py` | `P1` |
+| - [ ] | **TSK-12** | Xây dựng SubscriptionRepository (Tìm QR, trừ buổi) | Data Access | `UI/repositories/subscription_repository.py` | `P1` |
+| - [ ] | **TSK-13** | Xây dựng InvoiceRepository & NotificationRepository | Data Access | `UI/repositories/invoice_repository.py`, `notification_repo.py` | `P1` |
+| - [ ] | **TSK-14** | Xây dựng CheckInRepository (Ghi log, lấy log hôm nay)| Data Access | `UI/repositories/check_in_repository.py` | `P1` |
+| - [ ] | **TSK-15** | Tích hợp Dịch vụ VietQR Sandbox API bằng requests | Service / API | `UI/services/vietqr_service.py` | `P1` |
+| - [ ] | **TSK-16** | Xây dựng MemberService (Giao dịch tạo hội viên mới) | Service / Domain | `UI/services/member_service.py` | `P0` |
+| - [ ] | **TSK-17** | Xây dựng CheckInService (Kiểm tra thẻ & trừ lượt) | Service / Domain | `UI/services/checkin_service.py` | `P0` |
+| - [ ] | **TSK-18** | Tích hợp RegisterMemberDialog (Form đăng ký & VietQR)| Presentation | `UI/desktop_portal/dialogs/register_member_dialog.py` | `P0` |
+| - [ ] | **TSK-19** | Tích hợp CheckInCounterPage (Camera QR & Nhập tay) | Presentation | `UI/desktop_portal/views/checkin_counter_page.py` | `P0` |
+| - [ ] | **TSK-20** | Đồng bộ dữ liệu thật trên MembersPage & PosBillingPage| Presentation | `UI/desktop_portal/views/members_page.py`, `pos_billing_page.py`| `P2` |
+| - [ ] | **TSK-21** | Viết Unit Test Suite cho Services (Pytest AAA) | Testing | `UI/tests/test_member_service.py`, `test_checkin_service.py` | `P1` |
+| - [ ] | **TSK-22** | Viết Integration Test end-to-end trên MySQL Docker | Testing | `UI/tests/test_integration_flow.py` | `P1` |
+| - [ ] | **TSK-23** | Thiết lập & Kiểm chứng GitHub Actions CI Pipeline | CI / DevOps | `.github/workflows/ci.yml` | `P1` |
+| - [ ] | **TSK-24** | Thẩm định Tiêu chuẩn Nghiệm thu Hoàn thành (DoD) | Audit / QA | `doc/task.md` | `P0` |
