@@ -192,7 +192,7 @@ flowchart LR
 
 ### GIAI ĐOẠN 2: KẾT NỐI CSDL & TẦNG THỰC THỂ OOP (MODELS & CONNECTION)
 
-#### - [ ] Task 2.1 (TSK-04): Triển khai lớp quản lý kết nối CSDL Singleton Connection Pool
+#### - [x] Task 2.1 (TSK-04): Triển khai lớp quản lý kết nối CSDL Singleton Connection Pool
 * **Tệp tin:** `UI/database/db_connection.py`
 * **Mục tiêu:** Cung cấp kết nối MySQL an toàn luồng (Thread-safe) sử dụng connection pooling và Context Manager.
 * **Quy chuẩn kỹ thuật:**
@@ -204,7 +204,7 @@ flowchart LR
   * Gọi được `with db.transaction() as cursor:` thực thi lệnh thử nghiệm thành công.
   * Mô phỏng lệnh SQL lỗi -> Hệ thống tự rollback an toàn, không rò rỉ kết nối.
 
-#### - [ ] Task 2.2 (TSK-05): Xây dựng hằng số tập trung & Cây phân cấp ngoại lệ
+#### - [x] Task 2.2 (TSK-05): Xây dựng hằng số tập trung & Cây phân cấp ngoại lệ
 * **Tệp tin:** `UI/constants.py`, `UI/exceptions.py`
 * **Mục tiêu:** Triệt tiêu số/chuỗi ma thuật (No Magic Numbers/Strings) và xây dựng hệ thống báo lỗi ngữ nghĩa cao.
 * **Chi tiết thực thi:**
@@ -225,7 +225,7 @@ flowchart LR
   * Toàn bộ ngoại lệ kế thừa từ `GymBaseException`.
   * Có thuộc tính `error_code` hỗ trợ truy vết lỗi nhanh.
 
-#### - [ ] Task 2.3 (TSK-06): Xây dựng BaseModel và Entity Role & User
+#### - [x] Task 2.3 (TSK-06): Xây dựng BaseModel và Entity Role & User
 * **Tệp tin:** `UI/models/base_model.py`, `role.py`, `user.py`
 * **Mục tiêu:** Định nghĩa các lớp thực thể OOP đại diện cho quyền hạn và người dùng/hội viên.
 * **Quy chuẩn kỹ thuật:**
@@ -235,7 +235,7 @@ flowchart LR
 * **Tiêu chí nghiệm thu (DoD):**
   * 100% Type Hints và Docstring Google-style.
 
-#### - [ ] Task 2.4 (TSK-07): Xây dựng Entity PackagePlan & MemberSubscription
+#### - [x] Task 2.4 (TSK-07): Xây dựng Entity PackagePlan & MemberSubscription
 * **Tệp tin:** `UI/models/package_plan.py`, `member_subscription.py`
 * **Mục tiêu:** Định nghĩa lớp gói tập và thẻ hội viên kèm logic kiểm tra điều kiện check-in.
 * **Quy chuẩn kỹ thuật:**
@@ -249,7 +249,7 @@ flowchart LR
 * **Tiêu chí nghiệm thu (DoD):**
   * `is_eligible_for_checkin()` xử lý đúng các trường hợp hết hạn, hết buổi, trạng thái không ACTIVE.
 
-#### - [ ] Task 2.5 (TSK-08): Xây dựng Entity Invoice, CheckInLog, Notification
+#### - [x] Task 2.5 (TSK-08): Xây dựng Entity Invoice, CheckInLog, Notification
 * **Tệp tin:** `UI/models/invoice.py`, `check_in_log.py`, `notification.py`
 * **Mục tiêu:** Định nghĩa lớp hóa đơn thu tiền, nhật ký điểm danh và thông báo.
 * **Quy chuẩn kỹ thuật:**
