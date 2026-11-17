@@ -1,0 +1,42 @@
+@inherits LayoutComponentBase
+@inject CustomAuthenticationStateProvider AuthState
+@inject NavigationManager Navigation
+
+<div class="mobile-shell">
+    <AuthorizeView>
+        <Authorized>
+            <header class="top-bar">
+                <div class="top-bar-title">
+                    <span class="top-bar-brand">PHÒNG TẬP THỂ THAO</span>
+                </div>
+                <div class="top-bar-actions">
+                    <span class="role-badge @(context.User.IsInRole("PT") ? "role-pt" : "role-member")">
+                        @(context.User.IsInRole("PT") ? "HLV PT" : "HỘI VIÊN")
+                    </span>
+                    <NotificationBell />
+                    <button type="button" @onclick="HandleLogout" class="btn-secondary top-bar-logout">
+                        Đăng xuất
+                    </button>
+                </div>
+            </header>
+        </Authorized>
+    </AuthorizeView>
+
+    <main style="padding: 16px; flex: 1;">
+        @Body
+    </main>
+
+    <AuthorizeView>
+        <Authorized>
+            <NavMenu />
+        </Authorized>
+    </AuthorizeView>
+</div>
+
+@code {
+    private async Task HandleLogout()
+    {
+        await AuthState.SetAnonymousAsync();
+        Navigation.NavigateTo("/login");
+    }
+}

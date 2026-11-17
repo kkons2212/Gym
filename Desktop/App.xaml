@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Application
+    x:Class="GymManagement.Desktop.App"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:converters="using:GymManagement.Desktop.Converters"
+    xmlns:local="using:GymManagement.Desktop">
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls" />
+                <ResourceDictionary Source="ms-appx:///Styles/ColorTokens.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+
+            <!-- Converters -->
+            <converters:StatusToBrushConverter x:Key="StatusToBrushConverter" />
+            <converters:CurrencyFormatterConverter x:Key="CurrencyFormatterConverter" />
+            <converters:BmiEvaluationConverter x:Key="BmiEvaluationConverter" />
+            <converters:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter" />
+            <converters:InvertedBoolToVisibilityConverter x:Key="InvertedBoolToVisibilityConverter" />
+            <converters:InvertedBoolConverter x:Key="InvertedBoolConverter" />
+            <converters:StringFormatConverter x:Key="StringFormatConverter" />
+            <converters:TimeOnlyFormatterConverter x:Key="TimeOnlyFormatterConverter" />
+            <converters:StatusTextConverter x:Key="StatusTextConverter" />
+            <converters:PaymentMethodConverter x:Key="PaymentMethodConverter" />
+
+            <!-- Global Control Styles for Clean 100% Dark Layout -->
+            <Style TargetType="ListViewItem">
+                <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            </Style>
+        </ResourceDictionary>
+    </Application.Resources>
+</Application>
