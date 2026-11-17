@@ -1,243 +1,424 @@
-"""
-CheckIn Counter Page: Quầy điểm danh hội viên (1:1 with Desktop/Views/CheckInCounterPage.xaml).
-Features: Webcam scanner preview / simulation, manual code lookup, member card preview, check-in history table.
-"""
-from PyQt6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, 
-    QLineEdit, QComboBox, QFrame, QTableWidget, QTableWidgetItem, 
-    QHeaderView, QMessageBox
-)
-from PyQt6.QtCore import Qt, QTimer
-from PyQt6.QtGui import QImage, QPixmap
+"""Live QR/manual check-in counter with camera and database-backed history."""
+
+from __future__ import annotations
+
+import time
+from typing import Any, Callable, Dict, Optional
+
 import cv2
-from datetime import datetime
-from styles.color_tokens import (
-    TEXT_PRIMARY, TEXT_SECONDARY, CARD_BG, LAYER_BG, 
-    BORDER_SUBTLE, ACCENT_PRIMARY, STATUS_SUCCESS, STATUS_DANGER
+from PyQt6.QtCore import Qt, QTimer
+from PyQt6.QtGui import QColor, QImage, QPixmap
+from PyQt6.QtWidgets import (
+    QFrame,
+    QHBoxLayout,
+    QHeaderView,
+    QLabel,
+    QLineEdit,
+    QPushButton,
+    QTableWidget,
+    QTableWidgetItem,
+    QVBoxLayout,
+    QWidget,
 )
-from mock_data import MEMBERS, CHECKIN_LOGS
+
+from constants import CheckInMethod, CheckInStatus
+from exceptions import CheckInDeniedException, DatabaseTransactionException
+from repositories.check_in_repository import CheckInRepository
+from services.checkin_service import CheckInService
+from styles.color_tokens import (
+    BORDER_SUBTLE,
+    INPUT_BG,
+    STATUS_DANGER,
+    STATUS_DANGER_BG,
+    STATUS_SUCCESS,
+    STATUS_SUCCESS_BG,
+    TEXT_PRIMARY,
+    TEXT_SECONDARY,
+)
+
 
 class CheckInCounterPage(QWidget):
-    def __init__(self, parent=None):
+    """Run member check-ins and show persisted outcomes."""
+
+    def __init__(
+        self,
+        parent=None,
+        checkin_service: Optional[CheckInService] = None,
+        check_in_repo: Optional[CheckInRepository] = None,
+        camera_factory: Optional[Callable[[], Any]] = None,
+        qr_detector: Optional[Any] = None,
+    ) -> None:
         super().__init__(parent)
+        self.checkin_service = checkin_service or CheckInService()
+        self.check_in_repo = check_in_repo or CheckInRepository()
+        self.camera_factory = camera_factory or (lambda: cv2.VideoCapture(0))
+        self.qr_detector = qr_detector or cv2.QRCodeDetector()
         self.camera = None
+        self.is_camera_on = False
+        self._last_scan_key = ""
+        self._last_scan_at = 0.0
+        self._display_methods: Dict[str, str] = {}
+
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.update_frame)
-        self.is_camera_on = False
-        
+
         main_layout = QHBoxLayout(self)
         main_layout.setContentsMargins(24, 24, 24, 24)
         main_layout.setSpacing(24)
-        
-        # LEFT COLUMN (40%): Camera Scanner & Manual Input
-        left_col = QVBoxLayout()
-        left_col.setSpacing(16)
-        
-        # Camera Card
-        cam_card = QFrame()
-        cam_card.setObjectName("cardFrame")
-        cam_layout = QVBoxLayout(cam_card)
-        cam_layout.setContentsMargins(16, 16, 16, 16)
-        cam_layout.setSpacing(12)
-        
-        cam_header = QHBoxLayout()
-        lbl_cam_title = QLabel("📷  WEBCAM QUÉT MÃ QR")
-        lbl_cam_title.setStyleSheet(f"color: {TEXT_PRIMARY}; font-size: 13px; font-weight: bold;")
-        
-        self.btn_toggle_cam = QPushButton("Bật Camera")
-        self.btn_toggle_cam.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.btn_toggle_cam.setStyleSheet(f"background-color: {ACCENT_PRIMARY}; color: white; padding: 4px 12px;")
+
+        left_column = QVBoxLayout()
+        left_column.setSpacing(16)
+
+        camera_card = QFrame()
+        camera_card.setObjectName("cardFrame")
+        camera_layout = QVBoxLayout(camera_card)
+        camera_header = QHBoxLayout()
+        camera_title = QLabel("WEBCAM QUÉT MÃ QR")
+        camera_title.setStyleSheet(
+            f"color: {TEXT_PRIMARY}; font-size: 13px; font-weight: bold;"
+        )
+        self.btn_toggle_cam = QPushButton("Bật camera")
+        self.btn_toggle_cam.setProperty("primary", True)
         self.btn_toggle_cam.clicked.connect(self.toggle_camera)
-        
-        cam_header.addWidget(lbl_cam_title)
-        cam_header.addStretch()
-        cam_header.addWidget(self.btn_toggle_cam)
-        cam_layout.addLayout(cam_header)
-        
-        # Video Display Viewport
-        self.video_label = QLabel("Camera đang tắt\nBấm 'Bật Camera' để quét QR thẻ hội viên")
+        camera_header.addWidget(camera_title)
+        camera_header.addStretch()
+        camera_header.addWidget(self.btn_toggle_cam)
+        camera_layout.addLayout(camera_header)
+
+        self.video_label = QLabel("Camera đang tắt")
         self.video_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.video_label.setFixedHeight(240)
-        self.video_label.setStyleSheet(f"""
-            background-color: #0F172A;
-            border: 2px dashed {BORDER_SUBTLE};
-            border-radius: 8px;
-            color: {TEXT_SECONDARY};
-            font-size: 12px;
-        """)
-        cam_layout.addWidget(self.video_label)
-        
-        # Manual Code Lookup Card
+        self.video_label.setStyleSheet(
+            f"background-color: {INPUT_BG}; "
+            f"border: 2px dashed {BORDER_SUBTLE}; "
+            "border-radius: 8px;"
+        )
+        camera_layout.addWidget(self.video_label)
+        left_column.addWidget(camera_card)
+
         lookup_card = QFrame()
         lookup_card.setObjectName("cardFrame")
         lookup_layout = QVBoxLayout(lookup_card)
-        lookup_layout.setContentsMargins(16, 16, 16, 16)
-        lookup_layout.setSpacing(10)
-        
-        lbl_manual = QLabel("TRA CỨU THỦ CÔNG (SĐT / MÃ HV)")
-        lbl_manual.setStyleSheet(f"color: {TEXT_SECONDARY}; font-size: 11px; font-weight: bold;")
-        lookup_layout.addWidget(lbl_manual)
-        
+        lookup_layout.addWidget(
+            QLabel("TRA CỨU THỦ CÔNG (SĐT / MÃ HV)")
+        )
         input_row = QHBoxLayout()
         self.txt_search = QLineEdit()
-        self.txt_search.setPlaceholderText("Nhập SĐT hoặc Mã HV (vd: 0987654321, HV-1001)...")
+        self.txt_search.setPlaceholderText(
+            "Nhập số điện thoại hoặc mã hội viên"
+        )
         self.txt_search.returnPressed.connect(self.do_checkin)
-        
-        btn_checkin = QPushButton("Điểm Danh (Enter)")
-        btn_checkin.setCursor(Qt.CursorShape.PointingHandCursor)
-        btn_checkin.setProperty("primary", True)
-        btn_checkin.clicked.connect(self.do_checkin)
-        
+        self.btn_checkin = QPushButton("Điểm danh (Enter)")
+        self.btn_checkin.setProperty("primary", True)
+        self.btn_checkin.clicked.connect(self.do_checkin)
         input_row.addWidget(self.txt_search)
-        input_row.addWidget(btn_checkin)
+        input_row.addWidget(self.btn_checkin)
         lookup_layout.addLayout(input_row)
-        
-        left_col.addWidget(cam_card)
-        left_col.addWidget(lookup_card)
-        left_col.addStretch()
-        
-        main_layout.addLayout(left_col, 4)
-        
-        # RIGHT COLUMN (60%): Member Card Preview & Today Logs
-        right_col = QVBoxLayout()
-        right_col.setSpacing(16)
-        
-        # Member Preview Card
+        left_column.addWidget(lookup_card)
+        left_column.addStretch()
+        main_layout.addLayout(left_column, 4)
+
+        right_column = QVBoxLayout()
+        right_column.setSpacing(16)
+
+        self.status_card = QFrame()
+        self.status_card.setObjectName("cardFrame")
+        self.status_card.setProperty("checkinStatus", "neutral")
+        status_layout = QVBoxLayout(self.status_card)
+        self.status_title = QLabel("SẴN SÀNG ĐIỂM DANH")
+        self.status_title.setStyleSheet(
+            f"color: {TEXT_PRIMARY}; font-size: 16px; font-weight: bold;"
+        )
+        self.status_message = QLabel(
+            "Quét mã QR hoặc nhập thông tin hội viên."
+        )
+        self.status_message.setWordWrap(True)
+        self.status_message.setStyleSheet(f"color: {TEXT_SECONDARY};")
+        status_layout.addWidget(self.status_title)
+        status_layout.addWidget(self.status_message)
+        right_column.addWidget(self.status_card)
+
         self.preview_card = QFrame()
         self.preview_card.setObjectName("cardFrame")
-        prev_layout = QVBoxLayout(self.preview_card)
-        prev_layout.setContentsMargins(20, 20, 20, 20)
-        prev_layout.setSpacing(12)
-        
-        prev_header = QHBoxLayout()
-        self.lbl_member_name = QLabel("Nguyễn Hoàng Nam")
-        self.lbl_member_name.setStyleSheet(f"color: {TEXT_PRIMARY}; font-size: 20px; font-weight: bold;")
-        
-        self.badge_status = QLabel("  ĐANG HOẠT ĐỘNG  ")
-        self.badge_status.setStyleSheet("color: #4ADE80; background-color: #064E3B; border-radius: 4px; font-size: 11px; font-weight: bold; padding: 4px;")
-        
-        prev_header.addWidget(self.lbl_member_name)
-        prev_header.addStretch()
-        prev_header.addWidget(self.badge_status)
-        prev_layout.addLayout(prev_header)
-        
-        # Details grid
-        details_layout = QHBoxLayout()
-        self.lbl_code = QLabel("Mã HV: HV-1001")
-        self.lbl_code.setStyleSheet(f"color: {TEXT_SECONDARY}; font-size: 12px;")
-        
-        self.lbl_pkg = QLabel("Gói: VIP Platinum 12 Tháng")
-        self.lbl_pkg.setStyleSheet(f"color: {ACCENT_PRIMARY}; font-size: 12px; font-weight: bold;")
-        
-        self.lbl_expiry = QLabel("Hạn: 15/01/2027")
-        self.lbl_expiry.setStyleSheet(f"color: {TEXT_SECONDARY}; font-size: 12px;")
-        
-        details_layout.addWidget(self.lbl_code)
-        details_layout.addWidget(self.lbl_pkg)
-        details_layout.addWidget(self.lbl_expiry)
-        details_layout.addStretch()
-        prev_layout.addLayout(details_layout)
-        
-        right_col.addWidget(self.preview_card)
-        
-        # Today's Logs Table
-        lbl_log_title = QLabel("NHẬT KÝ ĐIỂM DANH HÔM NAY")
-        lbl_log_title.setStyleSheet(f"color: {TEXT_PRIMARY}; font-size: 14px; font-weight: bold;")
-        right_col.addWidget(lbl_log_title)
-        
+        preview_layout = QVBoxLayout(self.preview_card)
+        header = QHBoxLayout()
+        self.lbl_member_name = QLabel("—")
+        self.lbl_member_name.setStyleSheet(
+            f"color: {TEXT_PRIMARY}; font-size: 20px; font-weight: bold;"
+        )
+        self.badge_status = QLabel("—")
+        header.addWidget(self.lbl_member_name)
+        header.addStretch()
+        header.addWidget(self.badge_status)
+        preview_layout.addLayout(header)
+
+        details = QHBoxLayout()
+        self.lbl_code = QLabel("Mã HV: —")
+        self.lbl_pkg = QLabel("Gói: —")
+        self.lbl_expiry = QLabel("Hạn: —")
+        for label in (self.lbl_code, self.lbl_pkg, self.lbl_expiry):
+            label.setStyleSheet(f"color: {TEXT_SECONDARY}; font-size: 12px;")
+            details.addWidget(label)
+        details.addStretch()
+        preview_layout.addLayout(details)
+        right_column.addWidget(self.preview_card)
+
+        log_title = QLabel("NHẬT KÝ ĐIỂM DANH HÔM NAY")
+        log_title.setStyleSheet(
+            f"color: {TEXT_PRIMARY}; font-size: 14px; font-weight: bold;"
+        )
+        right_column.addWidget(log_title)
+
         self.table = QTableWidget()
         self.table.setColumnCount(5)
-        self.table.setHorizontalHeaderLabels(["Thời Gian", "Mã HV", "Họ Tên Hội Viên", "Phương Thức", "Trạng Thái"])
-        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        self.table.setHorizontalHeaderLabels(
+            [
+                "Thời gian",
+                "Mã HV",
+                "Họ tên hội viên",
+                "Phương thức",
+                "Trạng thái",
+            ]
+        )
+        self.table.horizontalHeader().setSectionResizeMode(
+            QHeaderView.ResizeMode.Stretch
+        )
+        self.table.horizontalHeaderItem(3).setToolTip(
+            "Phương thức không được lưu trong CheckInLog; chỉ lượt hiện tại "
+            "còn thông tin từ thao tác quầy."
+        )
         self.table.verticalHeader().setVisible(False)
-        self.populate_logs()
-        right_col.addWidget(self.table)
-        
-        main_layout.addLayout(right_col, 6)
-        
-    def populate_logs(self):
-        self.table.setRowCount(len(CHECKIN_LOGS))
-        for row, item in enumerate(CHECKIN_LOGS):
-            self.table.setItem(row, 0, QTableWidgetItem(item["time"]))
-            self.table.setItem(row, 1, QTableWidgetItem(item["code"]))
-            self.table.setItem(row, 2, QTableWidgetItem(item["name"]))
-            self.table.setItem(row, 3, QTableWidgetItem(item["method"]))
-            
-            status_item = QTableWidgetItem(item["status"])
-            if item["status"] == "Hợp Lệ":
-                status_item.setForeground(Qt.GlobalColor.green)
-            else:
-                status_item.setForeground(Qt.GlobalColor.red)
-            self.table.setItem(row, 4, status_item)
-            
-    def do_checkin(self):
-        text = self.txt_search.text().strip()
-        if not text:
-            QMessageBox.warning(self, "Lỗi Nhập Liệu", "Vui lòng nhập Mã hội viên hoặc Số điện thoại!")
+        right_column.addWidget(self.table)
+        main_layout.addLayout(right_column, 6)
+        self._load_today_logs()
+
+    def _set_status(
+        self, title: str, message: str, success: Optional[bool]
+    ) -> None:
+        self.status_title.setText(title)
+        self.status_message.setText(message)
+        if success is True:
+            status = "success"
+        elif success is False:
+            status = "denied"
+        else:
+            status = "neutral"
+        self.status_card.setProperty("checkinStatus", status)
+        self.status_card.style().unpolish(self.status_card)
+        self.status_card.style().polish(self.status_card)
+
+        if success is True:
+            badge_text = "HỢP LỆ"
+            badge_color = STATUS_SUCCESS
+            badge_background = STATUS_SUCCESS_BG
+        elif success is False:
+            badge_text = "TỪ CHỐI"
+            badge_color = STATUS_DANGER
+            badge_background = STATUS_DANGER_BG
+        else:
+            badge_text = ""
+            badge_color = TEXT_SECONDARY
+            badge_background = "transparent"
+        self.badge_status.setText(badge_text)
+        self.badge_status.setStyleSheet(
+            f"color: {badge_color}; background-color: {badge_background}; "
+            "border-radius: 4px; font-size: 11px; "
+            "font-weight: bold; padding: 4px;"
+        )
+        self.status_title.setStyleSheet(
+            f"color: {badge_color}; font-size: 16px; font-weight: bold;"
+        )
+        self.status_message.setStyleSheet(f"color: {badge_color};")
+
+    def _set_member_preview(self, result: Dict[str, Any]) -> None:
+        self.lbl_member_name.setText(result.get("full_name") or "—")
+        self.lbl_code.setText(f"Mã HV: {result.get('username') or '—'}")
+        self.lbl_pkg.setText(f"Gói: {result.get('plan_name') or '—'}")
+        end_date = result.get("end_date")
+        expiry = (
+            end_date.strftime("%Y-%m-%d")
+            if hasattr(end_date, "strftime")
+            else str(end_date or "—")
+        )
+        self.lbl_expiry.setText(f"Hạn: {expiry}")
+
+    def _clear_member_preview(self) -> None:
+        self.lbl_member_name.setText("—")
+        self.lbl_code.setText("Mã HV: —")
+        self.lbl_pkg.setText("Gói: —")
+        self.lbl_expiry.setText("Hạn: —")
+        self.badge_status.clear()
+        self.badge_status.setStyleSheet("")
+
+    def do_checkin(self) -> None:
+        key = self.txt_search.text().strip()
+        if not key:
+            self._set_status(
+                "THIẾU THÔNG TIN",
+                "Vui lòng nhập mã hội viên hoặc số điện thoại.",
+                None,
+            )
+            self.txt_search.setFocus()
             return
-            
-        found = None
-        for m in MEMBERS:
-            if text.lower() in m["code"].lower() or text in m["phone"]:
-                found = m
-                break
-                
-        if found:
-            self.lbl_member_name.setText(found["name"])
-            self.lbl_code.setText(f"Mã HV: {found['code']}")
-            self.lbl_pkg.setText(f"Gói: {found['package_name']}")
-            self.lbl_expiry.setText(f"Hạn: {found['expiry_date']}")
-            
-            is_valid = found["status"] == "Đang hoạt động"
-            self.badge_status.setText(f"  {found['status'].upper()}  ")
-            if is_valid:
-                self.badge_status.setStyleSheet("color: #4ADE80; background-color: #064E3B; border-radius: 4px; font-size: 11px; font-weight: bold; padding: 4px;")
-            else:
-                self.badge_status.setStyleSheet("color: #F87171; background-color: #7F1D1D; border-radius: 4px; font-size: 11px; font-weight: bold; padding: 4px;")
-                
-            # Prepend to log table
-            now_str = datetime.now().strftime("%H:%M:%S")
-            CHECKIN_LOGS.insert(0, {
-                "time": now_str, 
-                "code": found["code"], 
-                "name": found["name"], 
-                "method": "Nhập Mã", 
-                "status": "Hợp Lệ" if is_valid else found["status"]
-            })
-            self.populate_logs()
+        if self._process_checkin(key, CheckInMethod.MANUAL.value):
             self.txt_search.clear()
-        else:
-            QMessageBox.critical(self, "Không Tìm Thấy", f"Không tìm thấy hội viên nào khớp với '{text}'!")
 
-    def toggle_camera(self):
-        if not self.is_camera_on:
-            self.camera = cv2.VideoCapture(0)
-            if not self.camera.isOpened():
-                QMessageBox.warning(self, "Camera", "Không tìm thấy webcam kết nối! Đang chạy chế độ mô phỏng.")
-                self.video_label.setText("Mô phỏng máy quét QR tự động kích hoạt")
-                return
-            self.is_camera_on = True
-            self.btn_toggle_cam.setText("Tắt Camera")
-            self.btn_toggle_cam.setStyleSheet("background-color: #DC2626; color: white;")
-            self.timer.start(30)
+    def _process_checkin(self, key: str, method: str) -> bool:
+        try:
+            result = self.checkin_service.process_checkin(key, method=method)
+        except CheckInDeniedException as err:
+            self._clear_member_preview()
+            if err.username:
+                self.lbl_code.setText(f"Mã HV / tra cứu: {err.username}")
+            self._set_status(
+                "ĐIỂM DANH BỊ TỪ CHỐI", err.reason, False
+            )
+            if err.check_in_id:
+                self._display_methods[err.check_in_id] = (
+                    "Nhập mã" if method == CheckInMethod.MANUAL.value else "QR"
+                )
+                self._load_today_logs()
+            return True
+        except DatabaseTransactionException as err:
+            self._set_status(
+                "LỖI CƠ SỞ DỮ LIỆU", str(err), None
+            )
+            return False
         else:
-            self.is_camera_on = False
-            self.timer.stop()
-            if self.camera:
-                self.camera.release()
-                self.camera = None
-            self.btn_toggle_cam.setText("Bật Camera")
-            self.btn_toggle_cam.setStyleSheet(f"background-color: {ACCENT_PRIMARY}; color: white;")
+            self._set_member_preview(result)
+            remaining = result.get("remaining_sessions")
+            remaining_text = (
+                str(remaining) if remaining is not None else "không giới hạn"
+            )
+            self._set_status(
+                "ĐIỂM DANH THÀNH CÔNG",
+                f"Chào {result.get('full_name') or result.get('username')}! "
+                f"Còn {remaining_text} lượt.",
+                True,
+            )
+            self._display_methods[result["check_in_id"]] = (
+                "Nhập mã" if method == CheckInMethod.MANUAL.value else "QR"
+            )
+            self._load_today_logs()
+            return True
+
+    def _load_today_logs(self) -> None:
+        try:
+            logs = self.check_in_repo.get_today_logs()
+        except DatabaseTransactionException as err:
+            self._set_status(
+                "KHÔNG TẢI ĐƯỢC NHẬT KÝ", str(err), None
+            )
+            return
+
+        self.table.setRowCount(len(logs))
+        for row_index, record in enumerate(logs):
+            timestamp = record.get("check_in_at")
+            time_text = (
+                timestamp.strftime("%H:%M:%S")
+                if hasattr(timestamp, "strftime")
+                else str(timestamp or "—")
+            )
+            status = record.get("status")
+            status_text = (
+                "Hợp lệ"
+                if status == CheckInStatus.SUCCESS.value
+                else "Từ chối"
+            )
+            values = (
+                time_text,
+                record.get("username") or "—",
+                record.get("full_name") or record.get("username") or "—",
+                self._display_methods.get(record.get("check_in_id"), "—"),
+                status_text,
+            )
+            for column, value in enumerate(values):
+                item = QTableWidgetItem(str(value))
+                if column == 4:
+                    item.setForeground(
+                        QColor(STATUS_SUCCESS)
+                        if status == CheckInStatus.SUCCESS.value
+                        else QColor(STATUS_DANGER)
+                    )
+                self.table.setItem(row_index, column, item)
+
+    def toggle_camera(self) -> None:
+        if self.is_camera_on:
+            self._stop_camera()
             self.video_label.setText("Camera đã dừng")
+            return
 
-    def update_frame(self):
-        if self.camera and self.camera.isOpened():
-            ret, frame = self.camera.read()
-            if ret:
-                frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                h, w, ch = frame.shape
-                bytes_per_line = ch * w
-                q_img = QImage(frame.data, w, h, bytes_per_line, QImage.Format.Format_RGB888)
-                self.video_label.setPixmap(QPixmap.fromImage(q_img).scaled(
-                    self.video_label.width(), self.video_label.height(), Qt.AspectRatioMode.KeepAspectRatio
-                ))
+        camera = self.camera_factory()
+        if camera is None or not camera.isOpened():
+            if camera is not None:
+                camera.release()
+            self._set_status(
+                "KHÔNG MỞ ĐƯỢC CAMERA",
+                "Kiểm tra webcam hoặc tiếp tục bằng cách nhập mã thủ công.",
+                None,
+            )
+            return
+
+        self.camera = camera
+        self.is_camera_on = True
+        self.btn_toggle_cam.setText("Tắt camera")
+        self.btn_toggle_cam.setProperty("primary", False)
+        self.btn_toggle_cam.setProperty("danger", True)
+        self.btn_toggle_cam.style().unpolish(self.btn_toggle_cam)
+        self.btn_toggle_cam.style().polish(self.btn_toggle_cam)
+        self.timer.start(30)
+
+    def _stop_camera(self) -> None:
+        self.timer.stop()
+        if self.camera is not None:
+            self.camera.release()
+            self.camera = None
+        self.is_camera_on = False
+        self.btn_toggle_cam.setText("Bật camera")
+        self.btn_toggle_cam.setProperty("danger", False)
+        self.btn_toggle_cam.setProperty("primary", True)
+        self.btn_toggle_cam.style().unpolish(self.btn_toggle_cam)
+        self.btn_toggle_cam.style().polish(self.btn_toggle_cam)
+
+    def update_frame(self) -> None:
+        if self.camera is None or not self.camera.isOpened():
+            return
+        success, frame = self.camera.read()
+        if not success:
+            self.video_label.setText("Không đọc được hình ảnh từ camera")
+            return
+
+        try:
+            decoded, _, _ = self.qr_detector.detectAndDecode(frame)
+        except cv2.error as err:
+            self._set_status("LỖI QUÉT QR", str(err), None)
+            return
+        if decoded:
+            now = time.monotonic()
+            is_new_scan = decoded != self._last_scan_key
+            debounce_elapsed = now - self._last_scan_at >= 2.0
+            if is_new_scan or debounce_elapsed:
+                self._last_scan_key = decoded
+                self._last_scan_at = now
+                self._process_checkin(decoded, CheckInMethod.QR_SCAN.value)
+
+        rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        height, width, channels = rgb_frame.shape
+        image = QImage(
+            rgb_frame.data,
+            width,
+            height,
+            channels * width,
+            QImage.Format.Format_RGB888,
+        ).copy()
+        self.video_label.setPixmap(
+            QPixmap.fromImage(image).scaled(
+                self.video_label.width(),
+                self.video_label.height(),
+                Qt.AspectRatioMode.KeepAspectRatio,
+            )
+        )
+
+    def closeEvent(self, event) -> None:
+        self._stop_camera()
+        super().closeEvent(event)
