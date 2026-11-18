@@ -152,5 +152,7 @@ class MemberDetailDialog(QDialog):
         layout.addWidget(inbody_card)
 
         close_button = QPushButton("Đóng")
+        close_button.setFixedHeight(38)
+        close_button.setCursor(Qt.CursorShape.PointingHandCursor)
         close_button.clicked.connect(self.accept)
         layout.addWidget(close_button)

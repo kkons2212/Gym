@@ -103,15 +103,19 @@ class CheckInCounterPage(QWidget):
             QLabel("TRA CỨU THỦ CÔNG (SĐT / MÃ HV)")
         )
         input_row = QHBoxLayout()
+        input_row.setSpacing(8)
         self.txt_search = QLineEdit()
+        self.txt_search.setFixedHeight(38)
         self.txt_search.setPlaceholderText(
-            "Nhập số điện thoại hoặc mã hội viên"
+            "Nhập mã hội viên hoặc SĐT (USR001 / 0901234567)"
         )
         self.txt_search.returnPressed.connect(self.do_checkin)
-        self.btn_checkin = QPushButton("Điểm danh (Enter)")
+        self.btn_checkin = QPushButton("Điểm Danh")
+        self.btn_checkin.setFixedHeight(38)
         self.btn_checkin.setProperty("primary", True)
+        self.btn_checkin.setCursor(Qt.CursorShape.PointingHandCursor)
         self.btn_checkin.clicked.connect(self.do_checkin)
-        input_row.addWidget(self.txt_search)
+        input_row.addWidget(self.txt_search, 1)
         input_row.addWidget(self.btn_checkin)
         lookup_layout.addLayout(input_row)
         left_column.addWidget(lookup_card)
@@ -188,6 +192,7 @@ class CheckInCounterPage(QWidget):
             "còn thông tin từ thao tác quầy."
         )
         self.table.verticalHeader().setVisible(False)
+        self.table.verticalHeader().setDefaultSectionSize(44)
         right_column.addWidget(self.table)
         main_layout.addLayout(right_column, 6)
         self._load_today_logs()

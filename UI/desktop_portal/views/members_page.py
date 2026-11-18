@@ -14,6 +14,7 @@ from PyQt6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QLineEdit,
+    QMessageBox,
     QPushButton,
     QTableWidget,
     QTableWidgetItem,
@@ -51,18 +52,21 @@ class MembersPage(QWidget):
 
         header = QHBoxLayout()
         title_box = QVBoxLayout()
+        title_box.setSpacing(4)
         title = QLabel("QUẢN LÝ HỘI VIÊN & GÓI TẬP")
         title.setStyleSheet(
             f"color: {TEXT_PRIMARY}; font-size: 20px; font-weight: bold;"
         )
-        description = QLabel("Tra cứu hồ sơ và trạng thái gói tập")
+        description = QLabel(
+            "Tra cứu thông tin, gia hạn và bảo lưu gói tập (F3)"
+        )
         description.setStyleSheet(f"color: {TEXT_SECONDARY}; font-size: 12px;")
         title_box.addWidget(title)
         title_box.addWidget(description)
         header.addLayout(title_box)
         header.addStretch()
 
-        add_button = QPushButton("  + Đăng ký hội viên mới  ")
+        add_button = QPushButton("  + Đăng Ký Hội Viên Mới  ")
         add_button.setFixedHeight(40)
         add_button.setCursor(Qt.CursorShape.PointingHandCursor)
         add_button.setProperty("primary", True)
@@ -70,30 +74,54 @@ class MembersPage(QWidget):
         header.addWidget(add_button)
         main_layout.addLayout(header)
 
+        # Search Bar & Status Segmented Filters (1:1 with MembersPage.xaml)
         filter_row = QHBoxLayout()
+        filter_row.setSpacing(16)
+
         self.txt_search = QLineEdit()
+        self.txt_search.setFixedHeight(40)
         self.txt_search.setPlaceholderText(
-            "Tìm theo họ tên, mã hội viên hoặc số điện thoại..."
+            "Tìm kiếm theo Họ tên, SĐT, hoặc Mã hội viên..."
         )
         self.txt_search.textChanged.connect(self.filter_table)
-        filter_row.addWidget(self.txt_search, 7)
+        filter_row.addWidget(self.txt_search, 1)
 
-        self.cbo_status = QComboBox()
-        self.cbo_status.addItems(
-            [
-                "Tất cả trạng thái",
-                "Đang hoạt động",
-                "Hết hạn",
-                "Hết lượt",
-                "Đang bảo lưu",
-                "Đã hủy",
-                "Chưa đăng ký",
-                "Tạm khóa",
-            ]
-        )
-        self.cbo_status.currentIndexChanged.connect(self.filter_table)
-        filter_row.addWidget(self.cbo_status, 3)
+        # Status filter buttons
+        self._filter_tag = "ALL"
+        self._filter_buttons: Dict[str, QPushButton] = {}
+        filters_box = QHBoxLayout()
+        filters_box.setSpacing(8)
+
+        filter_configs = [
+            ("ALL", "Tất cả", TEXT_PRIMARY),
+            ("ACTIVE", "Đang Hoạt Động", STATUS_SUCCESS),
+            ("FROZEN", "Đang bảo lưu", "#FBBF24"),
+            ("EXPIRED", "Đã hết hạn", STATUS_DANGER),
+        ]
+
+        for tag, label_text, color in filter_configs:
+            btn = QPushButton(label_text)
+            btn.setFixedHeight(40)
+            btn.setProperty("filterButton", True)
+            btn.setCursor(Qt.CursorShape.PointingHandCursor)
+            if tag == "ALL":
+                btn.setProperty("active", True)
+            if color != TEXT_PRIMARY:
+                btn.setStyleSheet(f"color: {color};")
+            btn.clicked.connect(lambda ch, t=tag: self._set_filter(t))
+            self._filter_buttons[tag] = btn
+            filters_box.addWidget(btn)
+
+        filter_row.addLayout(filters_box)
         main_layout.addLayout(filter_row)
+
+        # Compatibility proxy for cbo_status if referenced externally
+        self.cbo_status = QComboBox()
+        self.cbo_status.addItems([
+            "Tất cả trạng thái", "Đang hoạt động", "Hết hạn", "Hết lượt",
+            "Đang bảo lưu", "Đã hủy", "Chưa đăng ký", "Tạm khóa"
+        ])
+        self.cbo_status.hide()
 
         self.status_label = QLabel()
         self.status_label.setWordWrap(True)
@@ -117,11 +145,24 @@ class MembersPage(QWidget):
             QHeaderView.ResizeMode.Stretch
         )
         self.table.horizontalHeader().setSectionResizeMode(
-            6, QHeaderView.ResizeMode.ResizeToContents
+            6, QHeaderView.ResizeMode.Fixed
         )
+        self.table.setColumnWidth(6, 220)
         self.table.verticalHeader().setVisible(False)
+        self.table.verticalHeader().setDefaultSectionSize(48)
+        self.table.cellDoubleClicked.connect(self._on_cell_double_clicked)
         main_layout.addWidget(self.table)
+        self._displayed_members: List[Dict[str, Any]] = []
         self._load_members()
+
+    def _set_filter(self, tag: str) -> None:
+        self._filter_tag = tag
+        for btn_tag, btn in self._filter_buttons.items():
+            is_active = (btn_tag == tag)
+            btn.setProperty("active", is_active)
+            btn.style().unpolish(btn)
+            btn.style().polish(btn)
+        self.filter_table()
 
     @staticmethod
     def _format_date(value: Any) -> str:
@@ -199,6 +240,7 @@ class MembersPage(QWidget):
         self.filter_table()
 
     def render_table(self, members: List[Dict[str, Any]]) -> None:
+        self._displayed_members = members
         self.table.setRowCount(len(members))
         for row_index, member in enumerate(members):
             values = (
@@ -220,21 +262,59 @@ class MembersPage(QWidget):
                     item.setForeground(QColor(color))
                 self.table.setItem(row_index, column, item)
 
-            view_button = QPushButton("Xem chi tiết")
-            view_button.clicked.connect(
-                lambda: self.open_detail_dialog(member)
+            btn_edit = QPushButton("Sửa")
+            btn_edit.setProperty("tableAction", True)
+            btn_edit.setCursor(Qt.CursorShape.PointingHandCursor)
+            btn_edit.clicked.connect(
+                lambda ch, m=member: self.open_edit_dialog(m)
             )
-            self.table.setCellWidget(row_index, 6, view_button)
+
+            btn_freeze = QPushButton("Bảo lưu")
+            btn_freeze.setProperty("tableAction", True)
+            btn_freeze.setProperty("actionVariant", "warning")
+            btn_freeze.setCursor(Qt.CursorShape.PointingHandCursor)
+            btn_freeze.clicked.connect(
+                lambda ch, m=member: self.open_freeze_dialog(m)
+            )
+
+            btn_cancel = QPushButton("Hủy gói")
+            btn_cancel.setProperty("tableAction", True)
+            btn_cancel.setProperty("actionVariant", "danger")
+            btn_cancel.setCursor(Qt.CursorShape.PointingHandCursor)
+            btn_cancel.clicked.connect(
+                lambda ch, m=member: self.open_cancel_dialog(m)
+            )
+
+            action_widget = QWidget()
+            action_layout = QHBoxLayout(action_widget)
+            action_layout.setContentsMargins(4, 2, 4, 2)
+            action_layout.setSpacing(6)
+            action_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            action_layout.addWidget(btn_edit)
+            action_layout.addWidget(btn_freeze)
+            action_layout.addWidget(btn_cancel)
+            self.table.setCellWidget(row_index, 6, action_widget)
+
+    def _on_cell_double_clicked(self, row: int, _col: int) -> None:
+        if 0 <= row < len(self._displayed_members):
+            self.open_detail_dialog(self._displayed_members[row])
 
     def filter_table(self) -> None:
         query = self.txt_search.text().strip().casefold()
-        status_filter = self.cbo_status.currentText()
+        tag_status_map = {
+            "ALL": None,
+            "ACTIVE": "Đang hoạt động",
+            "FROZEN": "Đang bảo lưu",
+            "EXPIRED": "Hết hạn",
+        }
+        target_status = tag_status_map.get(self._filter_tag)
+
         filtered = [
             member
             for member in self._members
             if (
-                status_filter == "Tất cả trạng thái"
-                or member["status"] == status_filter
+                target_status is None
+                or member["status"] == target_status
             )
             and any(
                 query in str(member[key]).casefold()
@@ -250,3 +330,42 @@ class MembersPage(QWidget):
 
     def open_detail_dialog(self, member: Dict[str, Any]) -> None:
         MemberDetailDialog(member, self).exec()
+
+    def open_edit_dialog(self, member: Dict[str, Any]) -> None:
+        QMessageBox.information(
+            self,
+            "Sửa Thông Tin Hội Viên",
+            f"Chỉnh sửa thông tin: {member['name']} ({member['code']})\n"
+            f"Số điện thoại: {member['phone']}\n"
+            "Chức năng chỉnh sửa thông tin hồ sơ đang được kết nối.",
+        )
+
+    def open_freeze_dialog(self, member: Dict[str, Any]) -> None:
+        QMessageBox.information(
+            self,
+            "Bảo Lưu Gói Tập",
+            f"Yêu cầu bảo lưu gói tập cho hội viên: {member['name']}\n"
+            f"Gói hiện tại: {member['package_name']}\n"
+            f"Hạn sử dụng hiện tại: {member['expiry_date']}\n"
+            "Hệ thống sẽ cập nhật trạng thái khi được phê duyệt.",
+        )
+
+    def open_cancel_dialog(self, member: Dict[str, Any]) -> None:
+        warn_msg = (
+            f"CẢNH BÁO: Bạn có muốn hủy gói của hội viên {member['name']}?\n"
+            f"Gói tập: {member['package_name']}\n"
+            "Thao tác này sẽ chấm dứt quyền sử dụng phòng tập của hội viên."
+        )
+        reply = QMessageBox.warning(
+            self,
+            "Xác Nhận Hủy Gói Tập",
+            warn_msg,
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if reply == QMessageBox.StandardButton.Yes:
+            QMessageBox.information(
+                self,
+                "Hủy Gói Tập",
+                f"Đã ghi nhận yêu cầu hủy gói của {member['name']}.",
+            )

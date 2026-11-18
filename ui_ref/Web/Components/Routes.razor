@@ -1,0 +1,39 @@
+<Router AppAssembly="typeof(Program).Assembly">
+    <Found Context="routeData">
+        <AuthorizeRouteView RouteData="routeData" DefaultLayout="typeof(Layout.MainLayout)">
+            <Authorizing>
+                <div class="mobile-shell" style="min-height: 80vh; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 16px;">
+                    <div class="gym-card" style="text-align: center; padding: 32px 20px; width: 100%; max-width: 320px;">
+                        <span style="display: inline-block; width: 32px; height: 32px; border: 3px solid rgba(56, 189, 248, 0.2); border-top-color: #38BDF8; border-radius: 50%; animation: spin 0.8s linear infinite;"></span>
+                        <div style="font-size: 13px; color: var(--text-secondary); margin-top: 12px;">Đang xác thực phiên làm việc…</div>
+                    </div>
+                </div>
+            </Authorizing>
+            <NotAuthorized>
+                <div class="mobile-shell" style="padding: 32px 16px; text-align: center;">
+                    <div class="gym-card" style="margin-top: 40px;">
+                        <h2 class="gym-card-title" style="margin-bottom: 8px;">Yêu Cầu Đăng Nhập</h2>
+                        <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 20px;">
+                            Vui lòng đăng nhập bằng tài khoản Hội viên hoặc Huấn luyện viên để tiếp tục.
+                        </p>
+                        <a href="/login" class="btn-primary" style="text-decoration: none;">Đến Trang Đăng Nhập</a>
+                    </div>
+                </div>
+            </NotAuthorized>
+        </AuthorizeRouteView>
+        <FocusOnNavigate RouteData="routeData" Selector="h1" />
+    </Found>
+    <NotFound>
+        <LayoutView Layout="typeof(Layout.MainLayout)">
+            <div class="mobile-shell" style="padding: 32px 16px; text-align: center;">
+                <div class="gym-card" style="margin-top: 40px;">
+                    <h2 class="gym-card-title" style="margin-bottom: 8px;">Không Tìm Thấy Trang</h2>
+                    <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 20px;">
+                        Đường dẫn bạn yêu cầu không tồn tại hoặc đã được thay đổi.
+                    </p>
+                    <a href="/" class="btn-primary" style="text-decoration: none;">Về Trang Chủ</a>
+                </div>
+            </div>
+        </LayoutView>
+    </NotFound>
+</Router>

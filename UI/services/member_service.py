@@ -65,10 +65,18 @@ class MemberService:
         plan_id: str,
         payment_method: str = PaymentMethod.VIETQR.value,
         email: Optional[str] = None,
+        username: Optional[str] = None,
+        password: Optional[str] = None,
     ) -> PackagePlan:
         """Validate a registration before a payment request is presented."""
         return self._validate_registration_inputs(
-            full_name, phone, plan_id, payment_method, email
+            full_name,
+            phone,
+            plan_id,
+            payment_method,
+            email,
+            username,
+            password,
         )[4]
 
     def _validate_registration_inputs(
@@ -78,6 +86,8 @@ class MemberService:
         plan_id: str,
         payment_method: str,
         email: Optional[str],
+        username: Optional[str] = None,
+        password: Optional[str] = None,
     ) -> Tuple[str, str, Optional[str], str, PackagePlan]:
         full_name = full_name.strip() if full_name else ""
         if not full_name:
@@ -99,6 +109,26 @@ class MemberService:
                 f"Số điện thoại '{phone}' không hợp lệ. "
                 "Bắt buộc phải là 10 chữ số tại Việt Nam.",
                 "phone",
+            )
+
+        if username:
+            clean_user = username.strip()
+            if len(clean_user) > 10:
+                raise ValidationException(
+                    "Mã hội viên không được vượt quá 10 ký tự.", "username"
+                )
+            if not re.match(r"^[A-Za-z0-9_-]+$", clean_user):
+                raise ValidationException(
+                    "Mã hội viên chỉ được chứa chữ cái, chữ số, "
+                    "gạch ngang (-) hoặc gạch dưới (_).",
+                    "username",
+                )
+            if self.user_repo.find_by_username(clean_user):
+                raise DuplicateUserException("Tên đăng nhập", clean_user)
+
+        if password is not None and len(password) < 6:
+            raise ValidationException(
+                "Mật khẩu đăng nhập phải có ít nhất 6 ký tự.", "password"
             )
 
         if email:
@@ -140,6 +170,8 @@ class MemberService:
         assigned_pt_id: Optional[str] = None,
         gender: Optional[int] = 1,
         invoice_code: Optional[str] = None,
+        username: Optional[str] = None,
+        password: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Thực hiện quy trình đăng ký hội viên mới kèm gói tập và hóa đơn.
 
@@ -173,7 +205,13 @@ class MemberService:
             payment_method,
             plan,
         ) = self._validate_registration_inputs(
-            full_name, phone, plan_id, payment_method, email
+            full_name,
+            phone,
+            plan_id,
+            payment_method,
+            email,
+            username,
+            password,
         )
 
         if invoice_code is not None:
@@ -190,21 +228,28 @@ class MemberService:
         remaining_pts = plan.total_pt_sessions if plan.is_pt_included else 0
 
         # 5. Sinh các khóa chính phù hợp kích thước VARCHAR(10) trong Schema
-        username = f"HV{uuid4().hex[:6].upper()}"
+        user_name = (
+            username.strip()
+            if username and username.strip()
+            else f"HV{uuid4().hex[:6].upper()}"
+        )
+        if username and self.user_repo.find_by_username(user_name):
+            raise DuplicateUserException("Tên đăng nhập", user_name)
+
         sub_id = f"SUB{uuid4().hex[:6].upper()}"
         inv_id = f"INV{uuid4().hex[:6].upper()}"
         noti_id = f"NOT{uuid4().hex[:6].upper()}"
-        qr_token = f"GYM-QR-{username}-{uuid4().hex[:8].upper()}"
+        qr_token = f"GYM-QR-{user_name}-{uuid4().hex[:8].upper()}"
         inv_code = invoice_code or self.generate_invoice_code()
 
         # 6. Tạo các thực thể Entity
         new_user = User(
-            username=username,
+            username=user_name,
             role_id=RoleID.MEMBER.value,
             full_name=full_name,
             phone=clean_phone,
             email=email or f"{clean_phone}@gym.vn",
-            password_hash=None,
+            password_hash=password or "member123",
             gender=gender,
             status=UserStatus.ACTIVE.value,
             created_at=today,
@@ -212,7 +257,7 @@ class MemberService:
 
         new_sub = MemberSubscription(
             subscription_id=sub_id,
-            username=username,
+            username=user_name,
             plan_id=plan.plan_id,
             qr_code=qr_token,
             start_date=today,
@@ -233,14 +278,14 @@ class MemberService:
             payment_method=payment_method,
             status=InvoiceStatus.PAID.value,
             paid_at=today,
-            username=username,
+            username=user_name,
             subscription_id=sub_id,
             created_by_admin_id=admin_id,
         )
 
         new_noti = Notification(
             notification_id=noti_id,
-            username=username,
+            username=user_name,
             title="Chào mừng hội viên mới!",
             message=(
                 "Chúc mừng bạn đã kích hoạt thành công "
@@ -260,7 +305,7 @@ class MemberService:
         logger.info(
             "Đăng ký hội viên thành công: "
             "username=%s, phone=%s, plan=%s, invoice=%s",
-            username,
+            user_name,
             clean_phone,
             plan.name,
             inv_code,

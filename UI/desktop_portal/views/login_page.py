@@ -54,9 +54,16 @@ class LoginDialog(QDialog):
         
         # Fast Role Selector Buttons
         role_frame = QFrame()
-        role_frame.setObjectName("cardFrame")
-        role_frame.setStyleSheet(f"background-color: #0F172A; border: 1px solid {BORDER_SUBTLE}; border-radius: 12px; padding: 12px;")
+        role_frame.setObjectName("roleSelectFrame")
+        role_frame.setStyleSheet(f"""
+            QFrame#roleSelectFrame {{
+                background-color: #0F172A;
+                border: 1px solid {BORDER_SUBTLE};
+                border-radius: 12px;
+            }}
+        """)
         rf_layout = QVBoxLayout(role_frame)
+        rf_layout.setContentsMargins(12, 12, 12, 12)
         rf_layout.setSpacing(10)
         
         lbl_rf = QLabel("TRUY CẬP NHANH THEO VAI TRÒ (QUICK ACCESS):")
@@ -89,11 +96,13 @@ class LoginDialog(QDialog):
         # Standard Credential Form
         layout.addWidget(QLabel("Hoặc đăng nhập bằng tài khoản:"))
         self.txt_user = QLineEdit()
+        self.txt_user.setFixedHeight(38)
         self.txt_user.setPlaceholderText("Tên đăng nhập hoặc Email...")
         self.txt_user.setText("admin")
         layout.addWidget(self.txt_user)
         
         self.txt_pass = QLineEdit()
+        self.txt_pass.setFixedHeight(38)
         self.txt_pass.setEchoMode(QLineEdit.EchoMode.Password)
         self.txt_pass.setPlaceholderText("Mật khẩu...")
         self.txt_pass.setText("••••••••")

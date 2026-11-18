@@ -18,6 +18,8 @@ from desktop_portal.views.members_page import MembersPage
 from desktop_portal.views.pos_billing_page import PosBillingPage
 from exceptions import CheckInDeniedException
 from models.package_plan import PackagePlan
+from web_portal.member_portal_window import MemberPortalWindow
+from web_portal.pt_portal_window import PtPortalWindow
 
 
 class _FakePlanRepository:
@@ -191,6 +193,47 @@ def test_cash_registration_uses_live_service():
     assert service.registrations[0]["invoice_code"] is None
 
 
+def test_register_member_wizard_2step_fields_and_validation():
+    plan = _plan()
+    service = _FakeMemberService(plan)
+    dialog = RegisterMemberDialog(member_service=service)
+
+    # Check 2-Step fields exist and initialized
+    assert dialog.txt_code.placeholderText().startswith("VD: MBR-0010")
+    assert dialog.cbo_gender.count() == 3
+    assert dialog.cbo_gender.currentText() == "Nam"
+    assert dialog.txt_password.text() == "123456"
+    assert "500,000" in dialog.txt_total_amount.text()
+
+    # Fill invalid short password
+    dialog.txt_name.setText("Le Van B")
+    dialog.txt_phone.setText("0908889999")
+    dialog.txt_password.setText("123")
+    dialog.save_member()
+    assert len(service.registrations) == 0
+    assert not dialog._errors["password"].isHidden()
+    assert "ít nhất 6 ký tự" in dialog._errors["password"].text()
+
+    # Fill valid data with custom member code
+    dialog.txt_password.setText("securePass123")
+    dialog.txt_code.setText("MBR-0099")
+    dialog.cbo_gender.setCurrentIndex(1)  # Nu
+
+    def dummy_success(result, selected_plan):
+        pass
+
+    dialog._show_success = dummy_success
+    dialog.save_member()
+
+    assert len(service.registrations) == 1
+    reg = service.registrations[0]
+    assert reg["full_name"] == "Le Van B"
+    assert reg["phone"] == "0908889999"
+    assert reg["username"] == "MBR-0099"
+    assert reg["password"] == "securePass123"
+    assert reg["gender"] == 0
+
+
 class _FakeCheckInService:
     def __init__(self, outcome):
         self.outcome = outcome
@@ -314,3 +357,77 @@ def test_package_catalog_uses_repository_plans():
         label.text() == plan.name
         for label in page.findChildren(QLabel)
     )
+
+
+def test_member_portal_tabs_and_workout_history():
+    window = MemberPortalWindow()
+    assert window.tabs.count() == 4
+    tab_titles = [window.tabs.tabText(i) for i in range(4)]
+    assert tab_titles == [
+        "💳 Thẻ Điện Tử & Hồ Sơ",
+        "📅 Đặt Lịch Huấn Luyện Viên",
+        "📈 Chỉ Số Cơ Thể InBody",
+        "🕒 Nhật Ký Tập Luyện",
+    ]
+
+    # Verify initial state of history table
+    assert window.history_table.columnCount() == 4
+    total_events = len(window.workout_events)
+    assert window.history_table.rowCount() == total_events
+
+    # Test CHECKIN filter
+    window.apply_history_filter("CHECKIN")
+    checkin_count = sum(
+        1 for e in window.workout_events if e["type"] == "CHECKIN"
+    )
+    assert window.history_table.rowCount() == checkin_count
+
+    # Test PT filter
+    window.apply_history_filter("PT")
+    pt_count = sum(1 for e in window.workout_events if e["type"] == "PT")
+    assert window.history_table.rowCount() == pt_count
+
+    # Reset to ALL
+    window.apply_history_filter("ALL")
+    assert window.history_table.rowCount() == total_events
+
+
+def test_pt_portal_tabs_and_availability_grid():
+    window = PtPortalWindow()
+    assert window.tabs.count() == 4
+    tab_titles = [window.tabs.tabText(i) for i in range(4)]
+    assert tab_titles == [
+        "📅 Lịch Dạy & Buổi Hẹn",
+        "👥 Danh Sách Học Viên",
+        "⏱ Đăng Ký Ca Rảnh",
+        "👤 Hồ Sơ & Đánh Giá",
+    ]
+
+    # Tab 1 Schedule layout verification (with Ngày column)
+    assert window.schedule_table.columnCount() == 6
+    assert window.schedule_table.columnWidth(5) == 150
+
+    # Tab 2 Students layout & search verification
+    assert window.students_table.columnCount() == 5
+    assert window.students_table.columnWidth(4) == 160
+    window.txt_student_search.setText("Hoàng Nam")
+    assert window.students_table.rowCount() == 1
+    window.txt_student_search.setText("")
+    assert window.students_table.rowCount() > 1
+
+    # Tab 3 Availability grid verification
+    assert len(window.day_buttons) == 7
+    assert window.avail_table.columnCount() == 4
+    assert window.avail_table.columnWidth(3) == 140
+
+    # Test adding a slot
+    initial_count = len(window.availability_slots)
+    window.cbo_start_time.setCurrentText("14:00")
+    window.cbo_end_time.setCurrentText("15:00")
+    window.add_avail_slot()
+    assert len(window.availability_slots) == initial_count + 1
+
+    # Test removing slot
+    added_slot = window.availability_slots[-1]
+    window.remove_avail_slot(added_slot)
+    assert len(window.availability_slots) == initial_count

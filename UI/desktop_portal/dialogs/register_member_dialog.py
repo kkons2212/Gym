@@ -1,7 +1,8 @@
-"""Dialog for registering a member with a live package plan."""
+"""Dialog for registering a member with a live package plan (2-Step Wizard)."""
 
 from __future__ import annotations
 
+import re
 from typing import Any, Dict, Optional
 
 from PyQt6.QtCore import (
@@ -13,17 +14,15 @@ from PyQt6.QtCore import (
     pyqtSignal,
 )
 from PyQt6.QtWidgets import (
-    QButtonGroup,
     QComboBox,
     QDialog,
-    QFormLayout,
     QFrame,
     QHBoxLayout,
     QLabel,
     QLineEdit,
     QPushButton,
-    QRadioButton,
     QVBoxLayout,
+    QWidget,
 )
 
 from constants import PaymentMethod
@@ -61,6 +60,26 @@ class _QrGenerationTask(QRunnable):
         self.signals.finished.emit(success, result)
 
 
+class _PaymentMethodRadioAdapter:
+    """Adapter providing isChecked/setChecked compatibility for test suites."""
+
+    def __init__(self, combo: QComboBox, method: str) -> None:
+        self._combo = combo
+        self._method = method
+
+    def isChecked(self) -> bool:
+        return self._combo.currentData() == self._method
+
+    def setChecked(self, checked: bool) -> None:
+        if checked:
+            idx = self._combo.findData(self._method)
+            if idx >= 0:
+                self._combo.setCurrentIndex(idx)
+
+    def setEnabled(self, enabled: bool) -> None:
+        pass
+
+
 class RegisterMemberDialog(QDialog):
     """Collect registration details and save after payment confirmation."""
 
@@ -77,98 +96,274 @@ class RegisterMemberDialog(QDialog):
         self.preferred_plan_id = preferred_plan_id
         self._is_submitting = False
         self._qr_task: Optional[_QrGenerationTask] = None
+        self._plans_by_id: Dict[str, PackagePlan] = {}
         self._fields: Dict[str, QLineEdit] = {}
         self._errors: Dict[str, QLabel] = {}
 
         self.setWindowTitle("Đăng ký hội viên mới")
-        self.setFixedSize(560, 600)
+        self.setFixedWidth(560)
 
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(24, 24, 24, 24)
-        layout.setSpacing(16)
+        main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(24, 20, 24, 20)
+        main_layout.setSpacing(14)
 
-        title = QLabel("ĐĂNG KÝ HỘI VIÊN MỚI")
+        # Title
+        title = QLabel("ĐĂNG KÝ HỘI VIÊN MỚI & KÍCH HOẠT GÓI (2-STEP)")
         title.setObjectName("pageTitle")
-        layout.addWidget(title)
-
-        form_frame = QFrame()
-        form_frame.setObjectName("cardFrame")
-        form_layout = QFormLayout(form_frame)
-        form_layout.setContentsMargins(16, 16, 16, 16)
-        form_layout.setVerticalSpacing(12)
-        form_layout.setLabelAlignment(Qt.AlignmentFlag.AlignLeft)
-
-        self.txt_name = self._add_text_field(
-            form_layout, "Họ và tên (*):", "Ví dụ: Nguyễn Văn An", "full_name"
+        title.setStyleSheet(
+            "font-size: 16px; font-weight: bold; color: #F8FAFC;"
         )
-        self.txt_phone = self._add_text_field(
-            form_layout,
-            "Số điện thoại (*):",
-            "10 chữ số, ví dụ 0988112233",
-            "phone",
+        main_layout.addWidget(title)
+
+        # -------------------------------------------------------------
+        # STEP 1: Personal Info Card
+        # -------------------------------------------------------------
+        step1_card = QFrame()
+        step1_card.setObjectName("cardFrame")
+        step1_layout = QVBoxLayout(step1_card)
+        step1_layout.setContentsMargins(16, 14, 16, 14)
+        step1_layout.setSpacing(10)
+
+        step1_header = QLabel("BƯỚC 1: THÔNG TIN CÁ NHÂN HỘI VIÊN")
+        step1_header.setStyleSheet(
+            "color: #38BDF8; font-weight: bold; font-size: 12px;"
         )
-        self.txt_email = self._add_text_field(
-            form_layout, "Email:", "Không bắt buộc", "email"
+        step1_layout.addWidget(step1_header)
+
+        # Row 1: Member Code (6) + Gender (4)
+        row1_layout = QHBoxLayout()
+        row1_layout.setSpacing(12)
+
+        self.txt_code = self._create_input_field(
+            "VD: MBR-0010 (Tối đa 10 ký tự)", "username", max_length=10
+        )
+        row1_layout.addWidget(
+            self._create_field_widget(
+                "Mã hội viên (Để trống để tự sinh mã):",
+                self.txt_code,
+                "username",
+            ),
+            6,
         )
 
+        self.cbo_gender = QComboBox()
+        self.cbo_gender.setFixedHeight(36)
+        self.cbo_gender.addItem("Nam", 1)
+        self.cbo_gender.addItem("Nữ", 0)
+        self.cbo_gender.addItem("Khác", None)
+        row1_layout.addWidget(
+            self._create_field_widget("Giới tính:", self.cbo_gender), 4
+        )
+        step1_layout.addLayout(row1_layout)
+
+        # Row 2: Full Name (6) + Phone (4)
+        row2_layout = QHBoxLayout()
+        row2_layout.setSpacing(12)
+
+        self.txt_name = self._create_input_field(
+            "Ví dụ: Nguyễn Văn An", "full_name"
+        )
+        row2_layout.addWidget(
+            self._create_field_widget(
+                "Họ và tên (*):", self.txt_name, "full_name"
+            ),
+            6,
+        )
+
+        self.txt_phone = self._create_input_field(
+            "10 chữ số, ví dụ 0988112233", "phone", max_length=10
+        )
+        row2_layout.addWidget(
+            self._create_field_widget(
+                "Số điện thoại (*):", self.txt_phone, "phone"
+            ),
+            4,
+        )
+        step1_layout.addLayout(row2_layout)
+
+        # Row 3: Email
+        self.txt_email = self._create_input_field(
+            "Không bắt buộc (ví dụ: member@example.com)", "email"
+        )
+        step1_layout.addWidget(
+            self._create_field_widget(
+                "Email liên hệ:", self.txt_email, "email"
+            )
+        )
+
+        # Row 4: Password
+        self.txt_password = self._create_input_field(
+            "Nhập mật khẩu (tối thiểu 6 ký tự)...",
+            "password",
+            is_password=True,
+        )
+        self.txt_password.setText("123456")
+        step1_layout.addWidget(
+            self._create_field_widget(
+                "Mật khẩu đăng nhập (*):", self.txt_password, "password"
+            )
+        )
+
+        main_layout.addWidget(step1_card)
+
+        # -------------------------------------------------------------
+        # STEP 2: Package & Payment Card
+        # -------------------------------------------------------------
+        step2_card = QFrame()
+        step2_card.setObjectName("cardFrame")
+        step2_layout = QVBoxLayout(step2_card)
+        step2_layout.setContentsMargins(16, 14, 16, 14)
+        step2_layout.setSpacing(10)
+
+        step2_header = QLabel("BƯỚC 2: CHỌN GÓI DỊCH VỤ & THANH TOÁN")
+        step2_header.setStyleSheet(
+            "color: #38BDF8; font-weight: bold; font-size: 12px;"
+        )
+        step2_layout.addWidget(step2_header)
+
+        # Row 1: Package selection
         self.cbo_package = QComboBox()
+        self.cbo_package.setFixedHeight(36)
         self.cbo_package.setObjectName("packageSelector")
-        form_layout.addRow("Gói dịch vụ (*):", self.cbo_package)
+        self.cbo_package.currentIndexChanged.connect(self._update_total_amount)
+        step2_layout.addWidget(
+            self._create_field_widget(
+                "Gói tập kích hoạt ngay (*):", self.cbo_package
+            )
+        )
 
-        payment_row = QHBoxLayout()
-        self.payment_group = QButtonGroup(self)
-        self.rb_cash = QRadioButton("Tiền mặt")
-        self.rb_cash.setChecked(True)
-        self.rb_vietqr = QRadioButton("Chuyển khoản VietQR")
-        self.payment_group.addButton(self.rb_cash)
-        self.payment_group.addButton(self.rb_vietqr)
-        payment_row.addWidget(self.rb_cash)
-        payment_row.addWidget(self.rb_vietqr)
-        form_layout.addRow("Phương thức thanh toán:", payment_row)
-        layout.addWidget(form_frame)
+        # Row 2: Payment method (1) + Total Amount (1)
+        row_pay_layout = QHBoxLayout()
+        row_pay_layout.setSpacing(12)
 
+        self.cbo_payment_method = QComboBox()
+        self.cbo_payment_method.setFixedHeight(36)
+        self.cbo_payment_method.addItem(
+            "Tiền mặt (CASH)", PaymentMethod.CASH.value
+        )
+        self.cbo_payment_method.addItem(
+            "Chuyển khoản VietQR", PaymentMethod.VIETQR.value
+        )
+        row_pay_layout.addWidget(
+            self._create_field_widget(
+                "Hình thức thanh toán:", self.cbo_payment_method
+            ),
+            1,
+        )
+
+        self.txt_total_amount = QLineEdit()
+        self.txt_total_amount.setFixedHeight(36)
+        self.txt_total_amount.setReadOnly(True)
+        self.txt_total_amount.setStyleSheet(
+            "font-weight: bold; color: #38BDF8; font-size: 14px; "
+            "background-color: #0F172A;"
+        )
+        row_pay_layout.addWidget(
+            self._create_field_widget(
+                "Tổng tiền thu (VNĐ):", self.txt_total_amount
+            ),
+            1,
+        )
+        step2_layout.addLayout(row_pay_layout)
+
+        main_layout.addWidget(step2_card)
+
+        # Backward-compatible radio adapters
+        self.rb_cash = _PaymentMethodRadioAdapter(
+            self.cbo_payment_method, PaymentMethod.CASH.value
+        )
+        self.rb_vietqr = _PaymentMethodRadioAdapter(
+            self.cbo_payment_method, PaymentMethod.VIETQR.value
+        )
+
+        # Status / Validation message
         self.status_label = QLabel()
         self.status_label.setWordWrap(True)
+        self.status_label.setStyleSheet(
+            "color: #EF4444; font-size: 12px; font-weight: 500;"
+        )
         self.status_label.hide()
-        layout.addWidget(self.status_label)
+        main_layout.addWidget(self.status_label)
 
-        layout.addStretch()
+        # Action Buttons
         button_layout = QHBoxLayout()
+        button_layout.setSpacing(12)
+
         self.cancel_button = QPushButton("Hủy")
+        self.cancel_button.setFixedHeight(40)
         self.cancel_button.clicked.connect(self.reject)
+
         self.submit_button = QPushButton("✓ Hoàn tất đăng ký")
+        self.submit_button.setFixedHeight(40)
         self.submit_button.setProperty("primary", True)
         self.submit_button.clicked.connect(self.save_member)
+
         button_layout.addWidget(self.cancel_button)
         button_layout.addWidget(self.submit_button)
-        layout.addLayout(button_layout)
+        main_layout.addLayout(button_layout)
 
+        # Load data & focus
         self._load_active_plans()
+        self.txt_name.returnPressed.connect(self.save_member)
+        self.txt_phone.returnPressed.connect(self.save_member)
         self.txt_email.returnPressed.connect(self.save_member)
+        self.txt_code.returnPressed.connect(self.save_member)
+        self.txt_password.returnPressed.connect(self.save_member)
         QTimer.singleShot(0, self.txt_name.setFocus)
 
-    def _add_text_field(
+    def _create_input_field(
         self,
-        form_layout: QFormLayout,
-        label: str,
         placeholder: str,
         field_key: str,
+        max_length: Optional[int] = None,
+        is_password: bool = False,
     ) -> QLineEdit:
         field = QLineEdit()
+        field.setFixedHeight(36)
         field.setPlaceholderText(placeholder)
         field.setObjectName(f"registration_{field_key}")
+        if max_length:
+            field.setMaxLength(max_length)
+        if is_password:
+            field.setEchoMode(QLineEdit.EchoMode.Password)
+
         error = QLabel()
         error.setProperty("error", True)
+        error.setStyleSheet("color: #F87171; font-size: 11px;")
         error.hide()
-        wrapper = QVBoxLayout()
-        wrapper.setContentsMargins(0, 0, 0, 0)
-        wrapper.setSpacing(3)
-        wrapper.addWidget(field)
-        wrapper.addWidget(error)
-        form_layout.addRow(label, wrapper)
+
         self._fields[field_key] = field
         self._errors[field_key] = error
         return field
+
+    def _create_field_widget(
+        self,
+        label_text: str,
+        field: QWidget,
+        field_key: Optional[str] = None,
+    ) -> QWidget:
+        container = QWidget()
+        layout = QVBoxLayout(container)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(4)
+
+        lbl = QLabel(label_text)
+        lbl.setStyleSheet("color: #94A3B8; font-size: 12px;")
+        layout.addWidget(lbl)
+        layout.addWidget(field)
+
+        if field_key and field_key in self._errors:
+            layout.addWidget(self._errors[field_key])
+
+        return container
+
+    def _update_total_amount(self) -> None:
+        plan_id = self.cbo_package.currentData()
+        plan = self._plans_by_id.get(plan_id)
+        if plan:
+            self.txt_total_amount.setText(f"{plan.price:,.0f} đ")
+        else:
+            self.txt_total_amount.clear()
 
     def _load_active_plans(self) -> None:
         try:
@@ -178,14 +373,21 @@ class RegisterMemberDialog(QDialog):
             self.submit_button.setEnabled(False)
             return
 
+        self._plans_by_id.clear()
+        self.cbo_package.clear()
         for plan in plans:
+            self._plans_by_id[plan.plan_id] = plan
             self.cbo_package.addItem(
                 f"{plan.name} - {plan.price:,.0f} đ", plan.plan_id
             )
+
         if self.preferred_plan_id:
             selected_index = self.cbo_package.findData(self.preferred_plan_id)
             if selected_index >= 0:
                 self.cbo_package.setCurrentIndex(selected_index)
+
+        self._update_total_amount()
+
         if not plans:
             self._show_status("Hiện không có gói tập nào đang mở bán.")
             self.submit_button.setEnabled(False)
@@ -221,12 +423,14 @@ class RegisterMemberDialog(QDialog):
         self._is_submitting = busy
         self.submit_button.setEnabled(not busy)
         self.cancel_button.setEnabled(not busy)
+        self.txt_code.setEnabled(not busy)
+        self.cbo_gender.setEnabled(not busy)
         self.txt_name.setEnabled(not busy)
         self.txt_phone.setEnabled(not busy)
         self.txt_email.setEnabled(not busy)
+        self.txt_password.setEnabled(not busy)
         self.cbo_package.setEnabled(not busy)
-        self.rb_cash.setEnabled(not busy)
-        self.rb_vietqr.setEnabled(not busy)
+        self.cbo_payment_method.setEnabled(not busy)
         if busy:
             self.submit_button.setText("Đang lưu dữ liệu…")
         else:
@@ -237,32 +441,73 @@ class RegisterMemberDialog(QDialog):
             return
         self._clear_errors()
 
-        name = self.txt_name.text()
-        phone = self.txt_phone.text()
-        email = self.txt_email.text() or None
+        name = self.txt_name.text().strip()
+        phone = self.txt_phone.text().strip()
+        email = self.txt_email.text().strip() or None
+        username = self.txt_code.text().strip() or None
+        password = self.txt_password.text().strip() or None
         plan_id = self.cbo_package.currentData()
+        payment_method = (
+            self.cbo_payment_method.currentData() or PaymentMethod.CASH.value
+        )
+
+        # Fast client-side validations matching WinUI RegisterMemberWizard
+        if username:
+            if len(username) > 10:
+                self._set_field_error(
+                    "username", "Mã hội viên không được vượt quá 10 ký tự!"
+                )
+                return
+            if not re.match(r"^[A-Za-z0-9_-]+$", username):
+                self._set_field_error(
+                    "username",
+                    "Mã hội viên chỉ được chứa chữ cái, chữ số, "
+                    "gạch ngang (-) hoặc gạch dưới (_)!",
+                )
+                return
+
+        if not name:
+            self._set_field_error(
+                "full_name", "Họ và tên hội viên không được để trống!"
+            )
+            return
+
+        if not phone or not re.match(r"^0\d{9}$", phone):
+            self._set_field_error(
+                "phone",
+                "Số điện thoại không hợp lệ. "
+                "Vui lòng nhập đúng 10 chữ số (bắt đầu bằng 0)!",
+            )
+            return
+
+        if not password or len(password) < 6:
+            self._set_field_error(
+                "password", "Mật khẩu đăng nhập phải có ít nhất 6 ký tự!"
+            )
+            return
+
         if not plan_id:
-            self._show_status("Vui lòng chọn gói dịch vụ.")
+            self._show_status("Vui lòng chọn một gói dịch vụ để kích hoạt!")
             self.cbo_package.setFocus()
             return
 
         self._set_busy(True)
-        payment_method = (
-            PaymentMethod.VIETQR.value
-            if self.rb_vietqr.isChecked()
-            else PaymentMethod.CASH.value
-        )
         try:
             plan = self.member_service.validate_registration(
-                name,
-                phone,
-                plan_id,
+                full_name=name,
+                phone=phone,
+                plan_id=plan_id,
                 payment_method=payment_method,
                 email=email,
+                username=username,
+                password=password,
             )
         except DuplicateUserException as err:
             self._set_busy(False)
-            self._set_field_error("phone", str(err))
+            if "Số điện thoại" in str(err):
+                self._set_field_error("phone", str(err))
+            else:
+                self._set_field_error("username", str(err))
             return
         except PackageNotFoundException as err:
             self._set_busy(False)
@@ -294,18 +539,29 @@ class RegisterMemberDialog(QDialog):
         payment_method: str,
         invoice_code: Optional[str],
     ) -> None:
+        gender = (
+            1
+            if self.cbo_gender.currentIndex() == 0
+            else (0 if self.cbo_gender.currentIndex() == 1 else None)
+        )
         try:
             result = self.member_service.register_member_with_package(
-                full_name=self.txt_name.text(),
-                phone=self.txt_phone.text(),
+                full_name=self.txt_name.text().strip(),
+                phone=self.txt_phone.text().strip(),
                 plan_id=plan.plan_id,
                 payment_method=payment_method,
-                email=self.txt_email.text() or None,
+                email=self.txt_email.text().strip() or None,
                 invoice_code=invoice_code,
+                username=self.txt_code.text().strip() or None,
+                password=self.txt_password.text().strip() or None,
+                gender=gender,
             )
         except DuplicateUserException as err:
             self._set_busy(False)
-            self._set_field_error("phone", str(err))
+            if "Số điện thoại" in str(err):
+                self._set_field_error("phone", str(err))
+            else:
+                self._set_field_error("username", str(err))
         except PackageNotFoundException as err:
             self._set_busy(False)
             self._show_status(str(err))

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import List, Optional
 
+from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import (
     QFrame,
     QHBoxLayout,
@@ -47,6 +48,7 @@ class PosBillingPage(QWidget):
         )
         description.setStyleSheet(f"color: {TEXT_SECONDARY}; font-size: 12px;")
         self.txt_filter = QLineEdit()
+        self.txt_filter.setFixedHeight(38)
         self.txt_filter.setPlaceholderText(
             "Tìm gói tập theo tên hoặc mô tả..."
         )
@@ -134,7 +136,9 @@ class PosBillingPage(QWidget):
             card_layout.addWidget(detail)
 
             register_button = QPushButton("Đăng ký hội viên với gói này")
+            register_button.setFixedHeight(38)
             register_button.setProperty("primary", True)
+            register_button.setCursor(Qt.CursorShape.PointingHandCursor)
             register_button.clicked.connect(
                 lambda: self.open_registration(plan.plan_id)
             )

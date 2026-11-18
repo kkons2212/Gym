@@ -87,8 +87,10 @@ class VietQrPaymentDialog(QDialog):
 
         button_layout = QHBoxLayout()
         cancel_button = QPushButton("Hủy Bỏ")
+        cancel_button.setFixedHeight(40)
         cancel_button.clicked.connect(self.reject)
         confirm_button = QPushButton("✓ Đã Nhận Tiền Thành Công")
+        confirm_button.setFixedHeight(40)
         confirm_button.setProperty("success", True)
         confirm_button.setCursor(Qt.CursorShape.PointingHandCursor)
         confirm_button.clicked.connect(self.accept)

@@ -94,6 +94,8 @@ class PackagePlansPage(QWidget):
             
             btn_row = QHBoxLayout()
             btn_edit = QPushButton("Chỉnh Sửa")
+            btn_edit.setFixedHeight(36)
+            btn_edit.setCursor(Qt.CursorShape.PointingHandCursor)
             btn_edit.clicked.connect(lambda ch, p=pkg: QMessageBox.information(self, "Chỉnh Sửa", f"Chỉnh sửa thông tin gói: {p['name']}"))
             btn_row.addWidget(btn_edit)
             
