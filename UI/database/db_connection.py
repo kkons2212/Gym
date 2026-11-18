@@ -28,7 +28,6 @@ class DatabaseConnection:
     def __new__(cls) -> DatabaseConnection:
         if cls._instance is None:
             cls._instance = super().__new__(cls)
-            cls._instance._initialize_pool()
         return cls._instance
 
     def _initialize_pool(self) -> None:
@@ -54,6 +53,7 @@ class DatabaseConnection:
                 db_cfg.get("database"),
             )
         except mysql.connector.Error as err:
+            self._pool = None
             logger.error("Không thể khởi tạo MySQL Connection Pool: %s", err)
             raise DatabaseTransactionException(err) from err
 

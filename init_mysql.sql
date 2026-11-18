@@ -4,6 +4,8 @@
 -- Mã nguồn: Python 3.10.11 / MySQL 8.0 (InnoDB, UTF-8)
 -- ====================================================================
 
+SET NAMES utf8mb4;
+SET CHARACTER SET utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;
 
 -- 1. XÓA BẢNG THEO THỨ TỰ TỪ BẢNG PHỤ THUỘC ĐẾN BẢNG GỐC
