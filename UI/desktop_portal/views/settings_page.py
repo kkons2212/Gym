@@ -41,7 +41,7 @@ STAFF_LIST: List[Dict[str, Any]] = [
         "status": "Hoạt động",
     },
     {
-        "username": "letan01",
+        "username": "admin02",
         "name": "Lê Thị Thu Ngân",
         "email": "ngan.le@gymsystem.vn",
         "phone": "0901234567",
@@ -174,7 +174,6 @@ class SettingsPage(QWidget):
         self.cbo_role.setFixedHeight(38)
         self.cbo_role.addItems([
             "Huấn luyện viên cá nhân (PT)",
-            "Nhân Viên Lễ Tân (STAFF)",
             "Quản trị viên (ADMIN)",
         ])
         l_layout.addWidget(self.cbo_role)

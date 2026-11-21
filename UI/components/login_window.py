@@ -16,28 +16,22 @@ from mock_data import MEMBERS, TRAINERS
 
 ROLE_CONFIGS = {
     "ADMIN": {
-        "title": "CỔNG QUẢN TRỊ VIÊN & LỄ TÂN",
+        "title": "CỔNG QUẢN TRỊ VIÊN",
         "subtitle": "Đăng nhập để điều hành vận hành phòng tập",
         "tag": "ADMINISTRATION PORTAL",
         "color": ACCENT_PRIMARY,
-        "default_user": "admin",
-        "demo_hint": "Tài khoản mẫu: admin, letan01 (Mật khẩu: bất kỳ)"
     },
     "MEMBER": {
         "title": "CỔNG HỘI VIÊN THỂ THAO",
         "subtitle": "Đăng nhập để xem thẻ số, InBody và đặt lịch tập",
         "tag": "MEMBER SERVICES PORTAL",
         "color": "#10B981",
-        "default_user": "HV-1001",
-        "demo_hint": "Tài khoản mẫu: HV-1001, 0987654321 (Mật khẩu: bất kỳ)"
     },
     "PT": {
         "title": "CỔNG HUẤN LUYỆN VIÊN (PT)",
         "subtitle": "Đăng nhập để xem lịch dạy, học viên và chấm công",
         "tag": "TRAINER SERVICES PORTAL",
         "color": "#F59E0B",
-        "default_user": "pt_hung",
-        "demo_hint": "Tài khoản mẫu: pt_hung, pt_mai (Mật khẩu: bất kỳ)"
     }
 }
 
@@ -50,7 +44,7 @@ class LoginWindow(QMainWindow):
         self.cfg = ROLE_CONFIGS.get(self.role, ROLE_CONFIGS["ADMIN"])
         
         self.setWindowTitle(f"{self.cfg['title']} • Gym Management")
-        self.setFixedSize(460, 560)
+        self.setFixedSize(460, 500)
         
         central = QWidget()
         self.setCentralWidget(central)
@@ -96,7 +90,6 @@ class LoginWindow(QMainWindow):
         self.txt_username = QLineEdit()
         self.txt_username.setFixedHeight(40)
         self.txt_username.setPlaceholderText("Nhập thông tin tài khoản...")
-        self.txt_username.setText(self.cfg["default_user"])
         c_layout.addWidget(self.txt_username)
         
         c_layout.addWidget(QLabel("Mật khẩu truy cập:"))
@@ -104,7 +97,6 @@ class LoginWindow(QMainWindow):
         self.txt_password.setFixedHeight(40)
         self.txt_password.setEchoMode(QLineEdit.EchoMode.Password)
         self.txt_password.setPlaceholderText("Nhập mật khẩu...")
-        self.txt_password.setText("123456")
         self.txt_password.returnPressed.connect(self.handle_login)
         c_layout.addWidget(self.txt_password)
         
@@ -131,12 +123,6 @@ class LoginWindow(QMainWindow):
         """)
         self.btn_login.clicked.connect(self.handle_login)
         c_layout.addWidget(self.btn_login)
-        
-        # Demo Hint
-        hint_lbl = QLabel(self.cfg["demo_hint"])
-        hint_lbl.setStyleSheet(f"color: {TEXT_SECONDARY}; font-size: 11px;")
-        hint_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        c_layout.addWidget(hint_lbl)
         
         layout.addWidget(card)
         

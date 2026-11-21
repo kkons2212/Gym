@@ -20,7 +20,7 @@ class CheckInLog(BaseModel):
         status: SUCCESS hoặc DENIED.
         denial_reason: Lý do từ chối nếu status = DENIED.
         subscription_id: Thẻ tập được sử dụng (FK -> MemberSubscription).
-        verified_by_admin_id: Nhân viên lễ tân trực quầy xác nhận.
+        verified_by_admin_id: Quản trị viên trực quầy xác nhận.
         username: Mã hội viên (FK -> User).
     """
 

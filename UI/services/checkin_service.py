@@ -57,7 +57,7 @@ class CheckInService:
         Args:
             key: Chuỗi mã QR token, hoặc Số điện thoại / Mã hội viên.
             method: QR_SCAN hoặc MANUAL.
-            admin_id: Nhân viên lễ tân trực quầy xác nhận.
+            admin_id: Quản trị viên trực quầy xác nhận.
             check_date: Ngày điểm danh (mặc định: ngày hiện tại).
 
         Returns:

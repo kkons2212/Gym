@@ -140,29 +140,17 @@ TRAINERS = [
     {
         "id": "PT01",
         "name": "Nguyễn Văn Hưng",
-        "phone": "0944112233",
-        "specialty": "Tăng cơ & Thể hình chuyên nghiệp (Bodybuilding)",
-        "rating": 4.9,
-        "active_students": 14,
-        "experience": "6 năm kinh nghiệm, Chứng chỉ Quốc tế NASM CPT"
+        "rating": 4.9
     },
     {
         "id": "PT02",
         "name": "Trần Thị Mai",
-        "phone": "0944223344",
-        "specialty": "Giảm mỡ toàn thân, HIIT & Pilates định hình vóc dáng",
-        "rating": 5.0,
-        "active_students": 16,
-        "experience": "5 năm kinh nghiệm, HLV Trưởng nữ vóc dáng"
+        "rating": 5.0
     },
     {
         "id": "PT03",
         "name": "Lê Quốc Tuấn",
-        "phone": "0944334455",
-        "specialty": "Phục hồi chấn thương & Sức mạnh cốt lõi (Powerlifting)",
-        "rating": 4.8,
-        "active_students": 11,
-        "experience": "7 năm kinh nghiệm, VĐV Powerlifting quốc gia"
+        "rating": 4.8
     }
 ]
 
@@ -175,7 +163,7 @@ INVOICES = [
         "payment_method": "VietQR Chuyển khoản",
         "date": "2026-11-17 08:30",
         "status": "Đã thanh toán",
-        "cashier": "Admin Lễ Tân"
+        "cashier": "Quản Trị Viên"
     },
     {
         "code": "HD-20261116-042",
@@ -185,7 +173,7 @@ INVOICES = [
         "payment_method": "VietQR Chuyển khoản",
         "date": "2026-11-16 16:45",
         "status": "Đã thanh toán",
-        "cashier": "Admin Lễ Tân"
+        "cashier": "Quản Trị Viên"
     },
     {
         "code": "HD-20261115-018",

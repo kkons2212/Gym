@@ -184,7 +184,7 @@ class MemberService:
             plan_id: Mã gói tập lựa chọn.
             payment_method: CASH hoặc VIETQR (nghiêm cấm quẹt thẻ POS).
             email: Địa chỉ email (tùy chọn).
-            admin_id: Mã nhân viên lễ tân trực quầy thực hiện giao dịch.
+            admin_id: Mã quản trị viên thực hiện giao dịch.
             assigned_pt_id: Mã HLV phụ trách nếu gói có PT.
             gender: Giới tính (1: Nam, 0: Nữ).
             invoice_code: Mã đơn dùng chung với nội dung chuyển khoản VietQR.

@@ -1,12 +1,12 @@
 @echo off
 chcp 65001 >nul
-title He Thong Gym - Cong Quan Tri Vien & Le Tan (Desktop)
+title He Thong Gym - Cong Quan Tri Vien (Desktop)
 cd /d "%~dp0"
 set PYTHONIOENCODING=utf-8
 set PYTHONPATH=%~dp0;%~dp0UI;%PYTHONPATH%
 
 echo ========================================================
-echo  KHOI CHAY: CONG QUAN TRI VIEN & LE TAN (DESKTOP)
+echo  KHOI CHAY: CONG QUAN TRI VIEN (DESKTOP)
 echo ========================================================
 
 rem 1. Tu dong kiem tra va thiet lap day du moi truong (Python, .venv, .env, pip, Docker)

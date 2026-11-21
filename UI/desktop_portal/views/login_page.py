@@ -70,7 +70,7 @@ class LoginDialog(QDialog):
         lbl_rf.setStyleSheet(f"color: {TEXT_SECONDARY}; font-size: 10px; font-weight: bold; letter-spacing: 0.5px;")
         rf_layout.addWidget(lbl_rf)
         
-        btn_admin = QPushButton("🖥️  1. Cổng Quản Trị Viên / Lễ Tân (Desktop)")
+        btn_admin = QPushButton("🖥️  1. Cổng Quản Trị Viên (Desktop)")
         btn_admin.setCursor(Qt.CursorShape.PointingHandCursor)
         btn_admin.setFixedHeight(40)
         btn_admin.setStyleSheet(f"background-color: #1E293B; border: 1px solid {ACCENT_PRIMARY}; color: {TEXT_PRIMARY}; font-weight: bold; text-align: left; padding-left: 14px;")
@@ -120,7 +120,7 @@ class LoginDialog(QDialog):
         
     def submit_login(self):
         u = self.txt_user.text().strip().lower()
-        if "admin" in u or "letan" in u:
+        if "admin" in u:
             self.selected_role = "ADMIN"
         elif "pt" in u or "hung" in u or "mai" in u:
             self.selected_role = "PT"

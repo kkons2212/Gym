@@ -1130,7 +1130,7 @@ class PtPortalWindow(QMainWindow):
         metrics = [
             (
                 "👥 Học Viên Phụ Trách",
-                f"{self.pt['active_students']} người",
+                f"{self.pt.get('active_students', 0)} người",
                 "#38BDF8",
             ),
             (
@@ -1184,9 +1184,9 @@ class PtPortalWindow(QMainWindow):
         d_layout.addWidget(lbl_info_title)
 
         rows = [
-            ("Chuyên môn huấn luyện:", self.pt["specialty"]),
-            ("Kinh nghiệm & Bằng cấp:", self.pt["experience"]),
-            ("Số điện thoại liên hệ:", self.pt["phone"]),
+            ("Chuyên môn huấn luyện:", self.pt.get("specialty", "Huấn luyện viên cá nhân")),
+            ("Kinh nghiệm & Bằng cấp:", self.pt.get("experience", "Đang cập nhật")),
+            ("Số điện thoại liên hệ:", self.pt.get("phone", "Chưa cập nhật")),
             (
                 "Địa chỉ email cá nhân:",
                 self.pt.get("email", "pt.hung@gympro.vn"),

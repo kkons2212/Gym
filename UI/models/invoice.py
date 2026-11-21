@@ -28,7 +28,7 @@ class Invoice(BaseModel):
         paid_at: Ngày thanh toán.
         username: Mã hội viên (FK -> User).
         subscription_id: Mã gói thẻ tạo ra (FK -> MemberSubscription).
-        created_by_admin_id: Nhân viên lễ tân lập hóa đơn.
+        created_by_admin_id: Quản trị viên lập hóa đơn.
         check_in_log_id: Mã log phạt nếu là hóa đơn quá giờ.
     """
 

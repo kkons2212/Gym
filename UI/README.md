@@ -6,11 +6,11 @@
 
 ## 🚀 Khởi Chạy 3 Giao Diện Độc Lập
 
-### 1. Cổng Quản Trị Viên & Lễ Tân (Admin / Staff Desktop)
+### 1. Cổng Quản Trị Viên (Admin Desktop)
 - **Chạy file**: [run_admin.bat](file:///c:/Users/ASUS/OneDrive/Desktop/Gym/run_admin.bat)
 - **Lệnh Python**: `& .venv\Scripts\python.exe UI\main_admin.py`
 - **Màn hình**:
-  - Giao diện đăng nhập quản trị (Tài khoản mẫu: `admin`, `letan01`).
+  - Giao diện đăng nhập quản trị (Tài khoản mẫu: `admin`).
   - Quầy điểm danh (Quét mã QR qua Webcam & nhập tay).
   - Bán gói tập & thanh toán POS (VietQR, Tiền mặt).
   - Lịch sử hóa đơn giao dịch & in bill.

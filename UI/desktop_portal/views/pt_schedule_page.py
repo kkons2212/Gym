@@ -65,44 +65,9 @@ class PtSchedulePage(QWidget):
         self.cbo_pt = QComboBox()
         self.cbo_pt.setFixedHeight(38)
         for pt in TRAINERS:
-            spec = pt.get("specialty", "")[:28]
-            self.cbo_pt.addItem(f"{pt['name']} - {spec}...", pt)
+            self.cbo_pt.addItem(pt["name"], pt)
         self.cbo_pt.currentIndexChanged.connect(self.update_schedule)
         f_layout.addWidget(self.cbo_pt)
-
-        # PT Profile snippet
-        self.pt_snippet = QFrame()
-        self.pt_snippet.setObjectName("ptSnippetFrame")
-        self.pt_snippet.setStyleSheet(
-            "QFrame#ptSnippetFrame { "
-            "background-color: #0F172A; border-radius: 8px; padding: 4px; }"
-        )
-        snip_layout = QVBoxLayout(self.pt_snippet)
-        snip_layout.setContentsMargins(12, 10, 12, 10)
-        snip_layout.setSpacing(4)
-
-        self.lbl_snip_name = QLabel("HLV: Nguyễn Văn Hưng")
-        self.lbl_snip_name.setStyleSheet(
-            f"color: {TEXT_PRIMARY}; font-weight: bold; font-size: 13px;"
-        )
-
-        self.lbl_snip_rating = QLabel("Đánh giá: 4.9 ⭐ • Học viên kèm: 14")
-        self.lbl_snip_rating.setStyleSheet(
-            f"color: {ACCENT_PRIMARY}; font-size: 11px;"
-        )
-
-        self.lbl_snip_exp = QLabel(
-            "6 năm kinh nghiệm, Chứng chỉ Quốc tế NASM CPT"
-        )
-        self.lbl_snip_exp.setStyleSheet(
-            f"color: {TEXT_SECONDARY}; font-size: 11px;"
-        )
-        self.lbl_snip_exp.setWordWrap(True)
-
-        snip_layout.addWidget(self.lbl_snip_name)
-        snip_layout.addWidget(self.lbl_snip_rating)
-        snip_layout.addWidget(self.lbl_snip_exp)
-        f_layout.addWidget(self.pt_snippet)
 
         # 2. Ngày dạy
         lbl_date = QLabel("Ngày dạy (*):")
@@ -248,14 +213,6 @@ class PtSchedulePage(QWidget):
         if not pt_data:
             return
 
-        self.lbl_snip_name.setText(f"HLV: {pt_data['name']}")
-        rating = pt_data.get('rating', '4.9')
-        students = pt_data.get('active_students', 0)
-        self.lbl_snip_rating.setText(
-            f"Đánh giá: {rating} ⭐ • Học viên kèm: {students}"
-        )
-        self.lbl_snip_exp.setText(pt_data.get("experience", "—"))
-
         filtered_slots = [
             s for s in SCHEDULE_SLOTS if s.get("pt") == pt_data["name"]
         ]
@@ -359,8 +316,7 @@ class PtSchedulePage(QWidget):
         info_lines: List[str] = []
         for t in TRAINERS:
             info_lines.append(
-                f"• {t['name']} - Chuyên môn: {t['specialty']} "
-                f"({t['rating']} ⭐, Học viên: {t['active_students']})"
+                f"• {t['name']} - Chuyên môn: {t['specialty']} ({t['rating']} ⭐)"
             )
         msg_content = (
             "Danh sách HLV phụ trách tại trung tâm:\n\n"

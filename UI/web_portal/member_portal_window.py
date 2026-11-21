@@ -131,7 +131,7 @@ class MemberPortalWindow(QMainWindow):
         self.qr_code = QRWidget(
             data=self.member["code"],
             size=160,
-            caption="Đưa mã này trước máy quét quầy lễ tân để check-in",
+            caption="Đưa mã này trước máy quét để check-in",
         )
         c_layout.addWidget(
             self.qr_code, alignment=Qt.AlignmentFlag.AlignCenter
@@ -228,9 +228,7 @@ class MemberPortalWindow(QMainWindow):
         f_layout.addWidget(QLabel("1. Chọn Huấn Luyện Viên:"))
         self.cbo_booking_pt = QComboBox()
         for pt in TRAINERS:
-            self.cbo_booking_pt.addItem(
-                f"{pt['name']} ({pt['specialty'][:30]}...)", pt
-            )
+            self.cbo_booking_pt.addItem(pt["name"], pt)
         f_layout.addWidget(self.cbo_booking_pt)
 
         f_layout.addWidget(QLabel("2. Chọn Ngày Tập:"))
@@ -422,7 +420,7 @@ class MemberPortalWindow(QMainWindow):
                 "badge": "Vào Cửa Phòng Tập",
                 "title": "Điểm danh vào cổng phòng gym",
                 "detail": (
-                    "Phương thức: Quét mã QR tại quầy lễ tân - Hợp lệ"
+                    "Phương thức: Quét mã QR tại quầy điểm danh - Hợp lệ"
                 ),
             },
             {
